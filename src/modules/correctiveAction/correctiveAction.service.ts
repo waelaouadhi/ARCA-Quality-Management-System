@@ -1,6 +1,8 @@
 import { AuthorizationError, NotFoundError, ValidationError } from '@/shared/errors';
 import { PaginationInput } from '@/shared/utils/pagination';
 import { JWTPayload } from '@/shared/utils/jwt';
+import { CreateCorrectiveActionSchema, UpdateCorrectiveActionSchema } from '@/shared/validation/schemas';
+import { auditService } from '@/modules/audit/audit.service';
 import { CorrectiveActionRepository } from './correctiveAction.repository';
 
 type ActionStatus = 'PENDING' | 'IN_PROGRESS' | 'DONE';
@@ -42,8 +44,23 @@ export class CorrectiveActionService {
   }
 
   async createCorrectiveAction(input: CreateCorrectiveActionInput, currentUser?: JWTPayload) {
-    this.requireActionWriteRole(currentUser);
-    return this.correctiveActionRepository.createCorrectiveAction(input);
+    const user = this.requireActionWriteRole(currentUser);
+
+    const validation = CreateCorrectiveActionSchema.safeParse(input);
+    if (!validation.success) {
+      throw new ValidationError(validation.error.errors.map((e) => e.message).join('; '));
+    }
+
+    const action = await this.correctiveActionRepository.createCorrectiveAction(validation.data);
+
+    await auditService.log({
+      userId: user.userId,
+      action: 'CREATE',
+      entity: 'CorrectiveAction',
+      entityId: action.id,
+    });
+
+    return action;
   }
 
   async getCorrectiveActions(
@@ -67,19 +84,43 @@ export class CorrectiveActionService {
   }
 
   async updateCorrectiveAction(id: string, input: UpdateCorrectiveActionInput, currentUser?: JWTPayload) {
-    this.requireActionWriteRole(currentUser);
+    const user = this.requireActionWriteRole(currentUser);
+
+    const validation = UpdateCorrectiveActionSchema.safeParse(input);
+    if (!validation.success) {
+      throw new ValidationError(validation.error.errors.map((e) => e.message).join('; '));
+    }
+
     await this.getCorrectiveActionById(id, currentUser);
-    return this.correctiveActionRepository.updateCorrectiveAction(id, input);
+    const updated = await this.correctiveActionRepository.updateCorrectiveAction(id, validation.data);
+
+    await auditService.log({
+      userId: user.userId,
+      action: 'UPDATE',
+      entity: 'CorrectiveAction',
+      entityId: id,
+    });
+
+    return updated;
   }
 
   async completeCorrectiveAction(id: string, currentUser?: JWTPayload) {
-    this.requireActionWriteRole(currentUser);
+    const user = this.requireActionWriteRole(currentUser);
     const action = await this.getCorrectiveActionById(id, currentUser);
 
     if (action.status === 'DONE') {
       throw new ValidationError('Corrective action is already completed');
     }
 
-    return this.correctiveActionRepository.completeCorrectiveAction(id);
+    const completed = await this.correctiveActionRepository.completeCorrectiveAction(id);
+
+    await auditService.log({
+      userId: user.userId,
+      action: 'COMPLETE',
+      entity: 'CorrectiveAction',
+      entityId: id,
+    });
+
+    return completed;
   }
 }

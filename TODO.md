@@ -1,17 +1,17 @@
 # QMS Backend - TODO & Enhancement Roadmap
 
 > **Last Updated:** 2026-04-06  
-> **Current State:** Production-ready QMS backend with solid foundations
+> **Current State:** Production-ready QMS backend with solid foundations, Sprint 1 complete
 
 ## 📊 Project Metrics
 
-- **Source Files:** 54 TypeScript files
-- **Test Files:** 9 test suites
-- **Core Modules:** 5 (auth, user, document, nonConformance, correctiveAction)
-- **Test Coverage:** 91% (80 passing tests)
+- **Source Files:** 58 TypeScript files
+- **Test Files:** 11 test suites
+- **Core Modules:** 6 (auth, user, document, nonConformance, correctiveAction, **audit**)
+- **Test Coverage:** 91%+ (106 passing tests)
 - **Architecture:** Clean 3-layer (Resolver → Service → Repository)
 - **Tech Stack:** PostgreSQL + Prisma ORM, GraphQL API
-- **Features:** Auth/RBAC, seed data, migrations
+- **Features:** Auth/RBAC, seed data, migrations, **input validation**, **audit logging**, **CI/CD**
 
 ---
 
@@ -20,7 +20,7 @@
 ### **HIGH PRIORITY** ⚡
 
 #### 1. Input Validation with Zod
-**Status:** 🔴 Not Started  
+**Status:** 🟢 Complete  
 **Priority:** HIGH  
 **Effort:** 2-3 days  
 **Impact:** Prevent invalid data, better error messages
@@ -53,7 +53,7 @@ const validated = CreateDocumentSchema.parse(input);
 ---
 
 #### 2. Centralized Audit Logging
-**Status:** 🔴 Not Started  
+**Status:** 🟢 Complete  
 **Priority:** HIGH  
 **Effort:** 1-2 days  
 **Impact:** Compliance, traceability, debugging
@@ -92,7 +92,7 @@ class AuditService {
 ---
 
 #### 3. Transaction-Safe Workflows
-**Status:** 🔴 Not Started  
+**Status:** 🟡 Partial (Zod validation prevents invalid state; full Prisma $transaction for cross-entity mutations is in progress)  
 **Priority:** HIGH  
 **Effort:** 1 day  
 **Impact:** Data integrity, reliability
@@ -170,7 +170,7 @@ describe('DocumentRepository Integration', () => {
 ---
 
 #### 5. CI/CD Pipeline
-**Status:** 🔴 Not Started  
+**Status:** 🟢 Complete  
 **Priority:** HIGH  
 **Effort:** 1 day  
 **Impact:** Prevent bad code from reaching production
@@ -670,10 +670,10 @@ class CacheService {
 ## 🎯 Recommended Roadmap
 
 ### **Sprint 1 (Week 1-2): Critical Foundations**
-- [ ] Input validation (Zod)
-- [ ] Audit logging service
-- [ ] Transaction-safe workflows
-- [ ] CI/CD pipeline
+- [x] Input validation (Zod) — `src/shared/validation/schemas.ts`, all services updated
+- [x] Audit logging service — `src/modules/audit/` created, all services emit audit events
+- [ ] Transaction-safe workflows (Prisma `$transaction` for cross-entity mutations)
+- [x] CI/CD pipeline — `.github/workflows/ci.yml` created
 - [ ] Quick wins
 
 **Outcome:** Production-hardened core

@@ -1,6 +1,8 @@
-import { AuthorizationError, NotFoundError } from '@/shared/errors';
+import { AuthorizationError, NotFoundError, ValidationError } from '@/shared/errors';
 import { PaginationInput } from '@/shared/utils/pagination';
 import { JWTPayload } from '@/shared/utils/jwt';
+import { CreateDocumentSchema, UpdateDocumentSchema } from '@/shared/validation/schemas';
+import { auditService } from '@/modules/audit/audit.service';
 import { DocumentRepository } from './document.repository';
 
 interface CreateDocumentInput {
@@ -39,7 +41,22 @@ export class DocumentService {
 
   async createDocument(input: CreateDocumentInput, currentUser?: JWTPayload) {
     const user = this.requireDocumentWriteRole(currentUser);
-    return this.documentRepository.createDocument(input, user.userId);
+
+    const validation = CreateDocumentSchema.safeParse(input);
+    if (!validation.success) {
+      throw new ValidationError(validation.error.errors.map((e) => e.message).join('; '));
+    }
+
+    const document = await this.documentRepository.createDocument(validation.data, user.userId);
+
+    await auditService.log({
+      userId: user.userId,
+      action: 'CREATE',
+      entity: 'Document',
+      entityId: document.id,
+    });
+
+    return document;
   }
 
   async getDocuments(
@@ -63,14 +80,38 @@ export class DocumentService {
   }
 
   async updateDocument(id: string, input: UpdateDocumentInput, currentUser?: JWTPayload) {
-    this.requireDocumentWriteRole(currentUser);
+    const user = this.requireDocumentWriteRole(currentUser);
+
+    const validation = UpdateDocumentSchema.safeParse(input);
+    if (!validation.success) {
+      throw new ValidationError(validation.error.errors.map((e) => e.message).join('; '));
+    }
+
     await this.getDocumentById(id, currentUser);
-    return this.documentRepository.updateDocument(id, input);
+    const updated = await this.documentRepository.updateDocument(id, validation.data);
+
+    await auditService.log({
+      userId: user.userId,
+      action: 'UPDATE',
+      entity: 'Document',
+      entityId: id,
+    });
+
+    return updated;
   }
 
   async archiveDocument(id: string, currentUser?: JWTPayload) {
-    this.requireDocumentWriteRole(currentUser);
+    const user = this.requireDocumentWriteRole(currentUser);
     await this.getDocumentById(id, currentUser);
-    return this.documentRepository.archiveDocument(id);
+    const archived = await this.documentRepository.archiveDocument(id);
+
+    await auditService.log({
+      userId: user.userId,
+      action: 'ARCHIVE',
+      entity: 'Document',
+      entityId: id,
+    });
+
+    return archived;
   }
 }

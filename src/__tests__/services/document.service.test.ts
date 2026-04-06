@@ -1,3 +1,7 @@
+jest.mock('@/modules/audit/audit.service', () => ({
+  auditService: { log: jest.fn() },
+}));
+
 import { DocumentService } from '@/modules/document/document.service';
 import { AuthorizationError, NotFoundError } from '@/shared/errors';
 
@@ -34,6 +38,14 @@ describe('DocumentService', () => {
     );
   });
 
+  it('rejects create with title too short', async () => {
+    const repository = createRepository();
+    const service = new DocumentService(repository as never);
+
+    await expect(service.createDocument({ title: 'AB' }, managerUser)).rejects.toMatchObject({ statusCode: 400 });
+    expect(repository.createDocument).not.toHaveBeenCalled();
+  });
+
   it('returns paginated documents for authenticated user', async () => {
     const repository = createRepository();
     const service = new DocumentService(repository as never);
@@ -59,5 +71,38 @@ describe('DocumentService', () => {
     repository.getDocumentById.mockResolvedValue(null);
 
     await expect(service.getDocumentById('missing', managerUser)).rejects.toMatchObject({ statusCode: 404 });
+  });
+
+  it('updates document for MANAGER', async () => {
+    const repository = createRepository();
+    const service = new DocumentService(repository as never);
+    repository.getDocumentById.mockResolvedValue({ id: 'd1', title: 'SOP-1' });
+    repository.updateDocument.mockResolvedValue({ id: 'd1', title: 'SOP-Updated' });
+
+    const result = await service.updateDocument('d1', { title: 'SOP-Updated' }, managerUser);
+
+    expect(repository.updateDocument).toHaveBeenCalledWith('d1', { title: 'SOP-Updated' });
+    expect(result).toEqual({ id: 'd1', title: 'SOP-Updated' });
+  });
+
+  it('rejects update with invalid status', async () => {
+    const repository = createRepository();
+    const service = new DocumentService(repository as never);
+
+    await expect(
+      service.updateDocument('d1', { status: 'INVALID' as never }, managerUser)
+    ).rejects.toMatchObject({ statusCode: 400 });
+  });
+
+  it('archives document for MANAGER', async () => {
+    const repository = createRepository();
+    const service = new DocumentService(repository as never);
+    repository.getDocumentById.mockResolvedValue({ id: 'd1' });
+    repository.archiveDocument.mockResolvedValue({ id: 'd1', status: 'ARCHIVED' });
+
+    const result = await service.archiveDocument('d1', managerUser);
+
+    expect(repository.archiveDocument).toHaveBeenCalledWith('d1');
+    expect(result).toEqual({ id: 'd1', status: 'ARCHIVED' });
   });
 });

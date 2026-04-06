@@ -1,6 +1,8 @@
 import { AuthorizationError, NotFoundError, ValidationError } from '@/shared/errors';
 import { PaginationInput } from '@/shared/utils/pagination';
 import { JWTPayload } from '@/shared/utils/jwt';
+import { CreateNonConformanceSchema, UpdateNonConformanceSchema } from '@/shared/validation/schemas';
+import { auditService } from '@/modules/audit/audit.service';
 import { NonConformanceRepository } from './nonConformance.repository';
 
 type Severity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
@@ -43,7 +45,25 @@ export class NonConformanceService {
 
   async createNonConformance(input: CreateNonConformanceInput, currentUser?: JWTPayload) {
     const user = this.requireNonConformanceWriteRole(currentUser);
-    return this.nonConformanceRepository.createNonConformance(input, user.userId);
+
+    const validation = CreateNonConformanceSchema.safeParse(input);
+    if (!validation.success) {
+      throw new ValidationError(validation.error.errors.map((e) => e.message).join('; '));
+    }
+
+    const nonConformance = await this.nonConformanceRepository.createNonConformance(
+      validation.data,
+      user.userId
+    );
+
+    await auditService.log({
+      userId: user.userId,
+      action: 'CREATE',
+      entity: 'NonConformance',
+      entityId: nonConformance.id,
+    });
+
+    return nonConformance;
   }
 
   async getNonConformances(
@@ -67,19 +87,43 @@ export class NonConformanceService {
   }
 
   async updateNonConformance(id: string, input: UpdateNonConformanceInput, currentUser?: JWTPayload) {
-    this.requireNonConformanceWriteRole(currentUser);
+    const user = this.requireNonConformanceWriteRole(currentUser);
+
+    const validation = UpdateNonConformanceSchema.safeParse(input);
+    if (!validation.success) {
+      throw new ValidationError(validation.error.errors.map((e) => e.message).join('; '));
+    }
+
     await this.getNonConformanceById(id, currentUser);
-    return this.nonConformanceRepository.updateNonConformance(id, input);
+    const updated = await this.nonConformanceRepository.updateNonConformance(id, validation.data);
+
+    await auditService.log({
+      userId: user.userId,
+      action: 'UPDATE',
+      entity: 'NonConformance',
+      entityId: id,
+    });
+
+    return updated;
   }
 
   async closeNonConformance(id: string, currentUser?: JWTPayload) {
-    this.requireNonConformanceWriteRole(currentUser);
+    const user = this.requireNonConformanceWriteRole(currentUser);
     const nonConformance = await this.getNonConformanceById(id, currentUser);
 
     if (nonConformance.status === 'CLOSED') {
       throw new ValidationError('Non-conformance is already closed');
     }
 
-    return this.nonConformanceRepository.closeNonConformance(id);
+    const closed = await this.nonConformanceRepository.closeNonConformance(id);
+
+    await auditService.log({
+      userId: user.userId,
+      action: 'CLOSE',
+      entity: 'NonConformance',
+      entityId: id,
+    });
+
+    return closed;
   }
 }

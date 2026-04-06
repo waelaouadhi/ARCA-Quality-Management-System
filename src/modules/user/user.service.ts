@@ -1,6 +1,8 @@
-import { NotFoundError, AuthorizationError } from '@/shared/errors';
+import { NotFoundError, AuthorizationError, ValidationError } from '@/shared/errors';
 import { PaginationInput } from '@/shared/utils/pagination';
 import { JWTPayload } from '@/shared/utils/jwt';
+import { UpdateUserSchema } from '@/shared/validation/schemas';
+import { auditService } from '@/modules/audit/audit.service';
 import { UserRepository } from './user.repository';
 
 export class UserService {
@@ -40,13 +42,36 @@ export class UserService {
   }
 
   async updateUser(id: string, data: any, currentUser?: JWTPayload) {
-    this.requireAuthenticatedUser(currentUser);
-    return this.userRepository.updateUser(id, data);
+    const actor = this.requireAuthenticatedUser(currentUser);
+
+    const validation = UpdateUserSchema.safeParse(data);
+    if (!validation.success) {
+      throw new ValidationError(validation.error.errors.map((e) => e.message).join('; '));
+    }
+
+    const updated = await this.userRepository.updateUser(id, validation.data);
+
+    await auditService.log({
+      userId: actor.userId,
+      action: 'UPDATE',
+      entity: 'User',
+      entityId: id,
+    });
+
+    return updated;
   }
 
   async deleteUser(id: string, currentUser?: JWTPayload) {
-    this.requireAdminUser(currentUser);
+    const actor = this.requireAdminUser(currentUser);
     await this.userRepository.deleteUser(id);
+
+    await auditService.log({
+      userId: actor.userId,
+      action: 'DELETE',
+      entity: 'User',
+      entityId: id,
+    });
+
     return true;
   }
 }
