@@ -510,13 +510,13 @@ This project is licensed under the **MIT License** - see the LICENSE file for de
 
 ## 👥 Team
 
-**ARCA Quality Management System** - Built with ❤️ for better quality management
+**ARCA Quality Management System** - Built with ❤️ for better quality management By WAEL AOUADHI 
 
 ---
 
 ## 📞 Support
 
-- 📧 **Email:** support@arca-qms.com
+- 📧 **Email:** wael.aouadhi@esprit.tn / 📞 WhatsAPP +21694603330
 - 📖 **Documentation:** [View Docs](https://github.com/waelaouadhi/ARCA-Quality-Management-System/tree/backend)
 - 🐛 **Issues:** [GitHub Issues](https://github.com/waelaouadhi/ARCA-Quality-Management-System/issues)
 - 💬 **Discussions:** [GitHub Discussions](https://github.com/waelaouadhi/ARCA-Quality-Management-System/discussions)
