@@ -11,6 +11,9 @@ on:
       - main
       - backend
 
+permissions:
+  contents: read
+
 jobs:
   test:
     name: Lint, Build & Test
