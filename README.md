@@ -21,14 +21,14 @@ The backend provides a robust GraphQL API with:
 **[→ View Backend Documentation](#-backend-documentation)**
 
 ### 🔹 [`frontend`](https://github.com/waelaouadhi/ARCA-Quality-Management-System/tree/frontend) - User Interface
-**Coming Soon:** React/Next.js application
+**Built with:** Flutter (Cross-platform mobile & web app)
 
 The frontend will provide an intuitive interface for:
 - 🎨 Modern, responsive UI
 - 📊 Dashboard & analytics
 - 📝 Document management
 - 🔔 Real-time notifications
-- 📱 Mobile-friendly design
+- 📱 Mobile-friendly design (iOS, Android, Web)
 
 ---
 
@@ -81,14 +81,14 @@ The frontend will provide an intuitive interface for:
 | Jest | Testing framework |
 | ESLint + Prettier | Code quality |
 
-### Frontend (Planned)
+### Frontend
 | Technology | Purpose |
 |------------|---------|
-| React / Next.js | UI framework |
-| TypeScript | Type safety |
-| Apollo Client | GraphQL client |
-| TailwindCSS | Styling |
-| Zustand / Redux | State management |
+| Flutter | Cross-platform framework |
+| Dart | Programming language |
+| GraphQL Flutter | GraphQL client |
+| Provider / Riverpod | State management |
+| Material Design 3 | UI components |
 
 ---
 
@@ -141,13 +141,24 @@ npm run dev
 **Backend will be running at:** http://localhost:4000  
 **GraphQL Playground:** http://localhost:4000/graphql
 
-### Frontend Setup (Coming Soon)
+### Frontend Setup
 
 ```bash
 # Switch to frontend branch
 git checkout frontend
 
-# Setup instructions will be added here
+# Install Flutter dependencies
+flutter pub get
+
+# Run on your preferred platform
+flutter run -d chrome        # Web
+flutter run -d ios           # iOS simulator
+flutter run -d android       # Android emulator
+
+# Build for production
+flutter build apk            # Android
+flutter build ios            # iOS
+flutter build web            # Web
 ```
 
 ---
