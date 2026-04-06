@@ -52,6 +52,26 @@ export class UserService {
   }
 
   async updateUser(id: string, data: any, currentUser?: JWTPayload) {
+    // Validate ID
+    try {
+      UserIdSchema.parse(id);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        throw new ValidationError(error.errors.map((e) => e.message).join(', '));
+      }
+      throw error;
+    }
+
+    // Validate input
+    try {
+      UpdateUserInputSchema.parse(data);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        throw new ValidationError(error.errors.map((e) => e.message).join(', '));
+      }
+      throw error;
+    }
+
     this.requireAuthenticatedUser(currentUser);
     return this.userRepository.updateUser(id, data);
   }

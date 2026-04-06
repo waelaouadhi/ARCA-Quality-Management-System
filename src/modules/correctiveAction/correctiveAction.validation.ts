@@ -15,7 +15,7 @@ export const CreateCorrectiveActionInputSchema = z.object({
     .string()
     .uuid('Invalid non-conformance ID format'),
   
-  assignedTo: z
+  assignedToId: z
     .string()
     .uuid('Invalid assignee user ID format')
     .optional(),
@@ -39,7 +39,7 @@ export const UpdateCorrectiveActionInputSchema = z.object({
     .trim()
     .optional(),
   
-  assignedTo: z
+  assignedToId: z
     .string()
     .uuid('Invalid assignee user ID format')
     .optional(),
