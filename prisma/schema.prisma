@@ -1,0 +1,154 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+//
+// =======================
+// ENUMS
+// =======================
+//
+
+enum Role {
+  ADMIN
+  MANAGER
+  USER
+}
+
+enum DocStatus {
+  DRAFT
+  REVIEW
+  APPROVED
+  ARCHIVED
+}
+
+enum Severity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum NCStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum ActionStatus {
+  PENDING
+  IN_PROGRESS
+  DONE
+}
+
+//
+// =======================
+// USER MODULE
+// =======================
+//
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  firstName String
+  lastName  String
+  role      Role     @default(USER)
+
+  documents                Document[]
+  audits                   AuditLog[]
+  reportedNonConformances  NonConformance[] @relation("ReportedBy")
+  assignedActions          CorrectiveAction[] @relation("AssignedTo")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+//
+// =======================
+// DOCUMENT CONTROL MODULE
+// =======================
+//
+
+model Document {
+  id          String    @id @default(cuid())
+  title       String
+  content     String?
+  version     Int       @default(1)
+  status      DocStatus @default(DRAFT)
+
+  createdById String
+  createdBy   User      @relation(fields: [createdById], references: [id])
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+//
+// =======================
+// NON CONFORMANCE MODULE
+// =======================
+//
+
+model NonConformance {
+  id                String   @id @default(cuid())
+  title             String
+  description       String
+  severity          Severity @default(MEDIUM)
+  status            NCStatus @default(OPEN)
+
+  reportedById      String
+  reportedBy        User     @relation("ReportedBy", fields: [reportedById], references: [id])
+
+  correctiveActions CorrectiveAction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+//
+// =======================
+// CORRECTIVE ACTION MODULE
+// =======================
+//
+
+model CorrectiveAction {
+  id               String       @id @default(cuid())
+  action           String
+  status           ActionStatus @default(PENDING)
+
+  nonConformanceId String
+  nonConformance   NonConformance @relation(fields: [nonConformanceId], references: [id])
+
+  assignedToId     String?
+  assignedTo       User?        @relation("AssignedTo", fields: [assignedToId], references: [id])
+
+  dueDate          DateTime?
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+//
+// =======================
+// AUDIT LOG MODULE
+// =======================
+//
+
+model AuditLog {
+  id        String   @id @default(cuid())
+
+  action    String
+  entity    String
+  entityId  String
+
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+}
