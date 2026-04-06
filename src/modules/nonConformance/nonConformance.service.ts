@@ -2,6 +2,12 @@ import { AuthorizationError, NotFoundError, ValidationError } from '@/shared/err
 import { PaginationInput } from '@/shared/utils/pagination';
 import { JWTPayload } from '@/shared/utils/jwt';
 import { NonConformanceRepository } from './nonConformance.repository';
+import { z } from 'zod';
+import {
+  CreateNonConformanceInputSchema,
+  UpdateNonConformanceInputSchema,
+  NonConformanceIdSchema,
+} from './nonConformance.validation';
 
 type Severity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 type NCStatus = 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
@@ -42,6 +48,15 @@ export class NonConformanceService {
   }
 
   async createNonConformance(input: CreateNonConformanceInput, currentUser?: JWTPayload) {
+    try {
+      CreateNonConformanceInputSchema.parse(input);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        throw new ValidationError(error.errors.map((e) => e.message).join(', '));
+      }
+      throw error;
+    }
+
     const user = this.requireNonConformanceWriteRole(currentUser);
     return this.nonConformanceRepository.createNonConformance(input, user.userId);
   }
@@ -56,6 +71,15 @@ export class NonConformanceService {
   }
 
   async getNonConformanceById(id: string, currentUser?: JWTPayload) {
+    try {
+      NonConformanceIdSchema.parse(id);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        throw new ValidationError(error.errors.map((e) => e.message).join(', '));
+      }
+      throw error;
+    }
+
     this.requireAuthenticatedUser(currentUser);
     const nonConformance = await this.nonConformanceRepository.getNonConformanceById(id);
 
@@ -67,12 +91,39 @@ export class NonConformanceService {
   }
 
   async updateNonConformance(id: string, input: UpdateNonConformanceInput, currentUser?: JWTPayload) {
+    try {
+      NonConformanceIdSchema.parse(id);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        throw new ValidationError(error.errors.map((e) => e.message).join(', '));
+      }
+      throw error;
+    }
+
+    try {
+      UpdateNonConformanceInputSchema.parse(input);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        throw new ValidationError(error.errors.map((e) => e.message).join(', '));
+      }
+      throw error;
+    }
+
     this.requireNonConformanceWriteRole(currentUser);
     await this.getNonConformanceById(id, currentUser);
     return this.nonConformanceRepository.updateNonConformance(id, input);
   }
 
   async closeNonConformance(id: string, currentUser?: JWTPayload) {
+    try {
+      NonConformanceIdSchema.parse(id);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        throw new ValidationError(error.errors.map((e) => e.message).join(', '));
+      }
+      throw error;
+    }
+
     this.requireNonConformanceWriteRole(currentUser);
     const nonConformance = await this.getNonConformanceById(id, currentUser);
 

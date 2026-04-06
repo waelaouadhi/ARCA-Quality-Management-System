@@ -36,7 +36,12 @@ describe('AuthService', () => {
     });
     (generateToken as jest.Mock).mockReturnValue('jwt-token');
 
-    const result = await service.register('john@qms.com', 'secret', 'John', 'Doe');
+    const result = await service.register(
+      'john@qms.com',
+      'SecurePass123',  // Valid password with uppercase, lowercase, and number
+      'John',
+      'Doe'
+    );
 
     expect(repository.createUser).toHaveBeenCalledWith({
       email: 'john@qms.com',
@@ -55,7 +60,9 @@ describe('AuthService', () => {
     const service = new AuthService(repository as never);
     repository.findUserByEmail.mockResolvedValue({ id: 'existing' });
 
-    await expect(service.register('john@qms.com', 'secret', 'John', 'Doe')).rejects.toMatchObject({ statusCode: 409 });
+    await expect(
+      service.register('john@qms.com', 'SecurePass123', 'John', 'Doe')
+    ).rejects.toMatchObject({ statusCode: 409 });
   });
 
   it('rejects login when user does not exist', async () => {

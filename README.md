@@ -1,188 +1,157 @@
-# 🏢 ARCA Quality Management System
+# QMS Backend
 
-A comprehensive **Quality Management System (QMS)** designed to help organizations manage quality processes, non-conformances, corrective actions, documents, and audits in compliance with industry standards.
+A professional Quality Management System backend built with TypeScript, GraphQL, Prisma, and PostgreSQL.
 
----
+## 🚀 Features
 
-## 📁 Repository Structure
+- **GraphQL API** with Apollo Server
+- **TypeScript** for type safety
+- **Prisma ORM** for database management
+- **JWT Authentication** with bcrypt password hashing
+- **Role-Based Access Control** (RBAC)
+- **Modular Architecture** with clean separation of concerns
+- **Comprehensive Error Handling**
+- **Logging** with Winston
+- **Input Validation** with Zod
+- **Code Quality** with ESLint and Prettier
 
-This repository contains **two separate branches** for the complete QMS solution:
+## 📁 Project Structure
 
-### 🔹 [`backend`](https://github.com/waelaouadhi/ARCA-Quality-Management-System/tree/backend) - API & Business Logic
-**Built with:** Node.js, TypeScript, GraphQL, Prisma, PostgreSQL
+```
+src/
+├── config/              # Configuration files
+│   ├── index.ts        # Main config
+│   ├── database.ts     # Prisma client
+│   └── logger.ts       # Winston logger
+├── shared/             # Shared utilities
+│   ├── errors/         # Custom error classes
+│   ├── utils/          # Utility functions
+│   ├── types/          # TypeScript types
+│   └── interfaces/     # TypeScript interfaces
+├── middlewares/        # Express/GraphQL middlewares
+│   ├── auth.ts         # Authentication middleware
+│   └── errorHandler.ts # Error handling
+├── modules/            # Feature modules
+│   ├── auth/           # Authentication module
+│   ├── user/           # User management
+│   ├── document/       # Document control
+│   ├── nonConformance/ # Non-conformance tracking
+│   └── correctiveAction/ # Corrective actions
+├── graphql/            # GraphQL schema
+│   ├── typeDefs/       # Type definitions
+│   └── resolvers/      # Resolvers
+└── index.ts            # Application entry point
+```
 
-The backend provides a robust GraphQL API with:
-- ✅ Clean 3-layer architecture (Resolver → Service → Repository)
-- ✅ JWT authentication & role-based access control
-- ✅ 91% test coverage with comprehensive unit tests
-- ✅ Database migrations & seed data
-- ✅ Production-ready error handling & logging
+## 🛠️ Tech Stack
 
-**[→ View Backend Documentation](#-backend-documentation)**
+- **Runtime**: Node.js
+- **Language**: TypeScript
+- **API**: GraphQL (Apollo Server)
+- **Database**: PostgreSQL
+- **ORM**: Prisma
+- **Authentication**: JWT + bcrypt
+- **Logging**: Winston
+- **Validation**: Zod
+- **Testing**: Jest
+- **Code Quality**: ESLint, Prettier
 
-### 🔹 [`frontend`](https://github.com/waelaouadhi/ARCA-Quality-Management-System/tree/frontend) - User Interface
-**Built with:** Flutter (Cross-platform mobile & web app)
+## 📦 Installation
 
-The frontend will provide an intuitive interface for:
-- 🎨 Modern, responsive UI
-- 📊 Dashboard & analytics
-- 📝 Document management
-- 🔔 Real-time notifications
-- 📱 Mobile-friendly design (iOS, Android, Web)
-
----
-
-## 🎯 Core Features
-
-### 📄 Document Management
-- Create, update, archive documents
-- Support for policies, procedures, forms, and records
-- Version control & approval workflows
-- Document categorization & search
-
-### ⚠️ Non-Conformance Management
-- Report and track quality issues
-- Severity classification (LOW, MEDIUM, HIGH, CRITICAL)
-- Status workflow (OPEN → UNDER_INVESTIGATION → CLOSED)
-- Root cause analysis
-
-### 🔧 Corrective Actions
-- Create actions linked to non-conformances
-- Assign responsibilities
-- Track completion status
-- Due date management
-- Effectiveness verification
-
-### 👥 User & Access Management
-- Role-based access control (ADMIN, MANAGER, USER, VIEWER)
-- JWT authentication
-- Secure password hashing
-- User profile management
-
-### 📊 Audit Logging
-- Comprehensive activity tracking
-- Who did what, when, and why
-- Compliance & traceability
-- Audit trail for all critical operations
-
----
-
-## 🛠️ Technology Stack
-
-### Backend
-| Technology | Purpose |
-|------------|---------|
-| Node.js 18+ | Runtime environment |
-| TypeScript | Type-safe development |
-| GraphQL (Apollo Server) | API layer |
-| Prisma ORM | Database access |
-| PostgreSQL | Relational database |
-| JWT | Authentication |
-| Jest | Testing framework |
-| ESLint + Prettier | Code quality |
-
-### Frontend
-| Technology | Purpose |
-|------------|---------|
-| Flutter | Cross-platform framework |
-| Dart | Programming language |
-| GraphQL Flutter | GraphQL client |
-| Provider / Riverpod | State management |
-| Material Design 3 | UI components |
-
----
-
-## 🚀 Quick Start
-
-### Prerequisites
-- Node.js 18+
-- PostgreSQL 14+
-- npm or yarn
-
-### Backend Setup
-
+1. Clone the repository
+2. Install dependencies:
 ```bash
-# Clone the repository
-git clone https://github.com/waelaouadhi/ARCA-Quality-Management-System.git
-cd ARCA-Quality-Management-System
-
-# Switch to backend branch
-git checkout backend
-
-# Install dependencies
 npm install
+```
 
-# Start PostgreSQL (Docker)
-docker run -d \
-  --name qms-db \
-  -e POSTGRES_USER=postgres \
-  -e POSTGRES_PASSWORD=password \
-  -e POSTGRES_DB=qms_db \
-  -p 5432:5432 \
-  postgres:latest
-
-# Configure environment
+3. Copy environment variables:
+```bash
 cp .env.example .env
-# Edit .env with your database credentials
+```
 
-# Generate Prisma client
-npx prisma generate
+4. Update `.env` with your database credentials
 
-# Run database migrations
+5. Generate Prisma client:
+```bash
+npm run prisma:generate
+```
+
+6. Run migrations:
+```bash
 npm run prisma:migrate
+```
 
-# Seed database with sample data
+7. Seed the database (optional):
+```bash
 npm run prisma:seed
+```
 
-# Start development server
+## 🚦 Running the Application
+
+### Development
+```bash
 npm run dev
 ```
 
-**Backend will be running at:** http://localhost:4000  
-**GraphQL Playground:** http://localhost:4000/graphql
-
-### Frontend Setup
-
+### Production
 ```bash
-# Switch to frontend branch
-git checkout frontend
-
-# Install Flutter dependencies
-flutter pub get
-
-# Run on your preferred platform
-flutter run -d chrome        # Web
-flutter run -d ios           # iOS simulator
-flutter run -d android       # Android emulator
-
-# Build for production
-flutter build apk            # Android
-flutter build ios            # iOS
-flutter build web            # Web
+npm run build
+npm start
 ```
 
----
+## 📝 Available Scripts
 
-## 📚 Backend Documentation
+- `npm run dev` - Start development server with hot reload
+- `npm run build` - Build for production
+- `npm start` - Start production server
+- `npm run prisma:generate` - Generate Prisma client
+- `npm run prisma:migrate` - Run database migrations
+- `npm run prisma:studio` - Open Prisma Studio
+- `npm run prisma:seed` - Seed the database
+- `npm run lint` - Run ESLint
+- `npm run lint:fix` - Fix ESLint errors
+- `npm run format` - Format code with Prettier
+- `npm test` - Run tests
+- `npm run test:watch` - Run tests in watch mode
+- `npm run test:coverage` - Run tests with coverage
 
-### Default Seeded Users
+## 🔐 Default Users (after seeding)
 
-| Email | Password | Role |
-|-------|----------|------|
-| admin@qms.com | admin123 | ADMIN |
-| manager@qms.com | manager123 | MANAGER |
-| user@qms.com | user123 | USER |
+- **Admin**: admin@qms.com / admin123
+- **User**: user@qms.com / user123
 
-### GraphQL API Examples
+## 📚 API Documentation
 
-#### 🔐 Authentication
+The GraphQL playground is available at: `http://localhost:4000/graphql`
 
-**Login:**
+### Example Queries
+
+#### Register User
+```graphql
+mutation {
+  register(input: {
+    email: "john@example.com"
+    password: "password123"
+    firstName: "John"
+    lastName: "Doe"
+  }) {
+    token
+    user {
+      id
+      email
+      firstName
+      lastName
+    }
+  }
+}
+```
+
+#### Login
 ```graphql
 mutation {
   login(input: {
-    email: "admin@qms.com"
-    password: "admin123"
+    email: "john@example.com"
+    password: "password123"
   }) {
     token
     user {
@@ -194,346 +163,95 @@ mutation {
 }
 ```
 
-**Use token in headers:**
-```http
-Authorization: Bearer <YOUR_TOKEN>
-```
-
-#### 📄 Document Operations
-
-**Create Document:**
-```graphql
-mutation {
-  createDocument(input: {
-    title: "SOP-001: Quality Control Procedure"
-    content: "Detailed procedure content..."
-    type: PROCEDURE
-  }) {
-    id
-    title
-    status
-    version
-    createdAt
-  }
-}
-```
-
-**List Documents:**
+#### Get Current User
 ```graphql
 query {
-  documents {
+  me {
     id
-    title
-    status
-    type
-    version
-    createdBy {
-      name
-      email
-    }
+    email
+    firstName
+    lastName
+    role
   }
 }
 ```
 
-#### ⚠️ Non-Conformance Operations
+## 🏗️ Architecture Principles
 
-**Create Non-Conformance:**
-```graphql
-mutation {
-  createNonConformance(input: {
-    title: "Product Label Mismatch"
-    description: "Batch #12345 has incorrect expiration date on labels"
-    severity: HIGH
-  }) {
-    id
-    title
-    status
-    severity
-    createdAt
-  }
-}
-```
+- **Clean Architecture**: Separation of concerns with layers
+- **Domain-Driven Design**: Modules organized by business domain
+- **SOLID Principles**: Maintainable and scalable code
+- **Repository Pattern**: Abstraction of data access
+- **Service Layer**: Business logic isolation
+- **Dependency Injection**: Loose coupling
 
-**Close Non-Conformance:**
-```graphql
-mutation {
-  closeNonConformance(id: "clx...") {
-    id
-    status
-    closedAt
-  }
-}
-```
+## 🔒 Security
 
-#### 🔧 Corrective Action Operations
+- JWT-based authentication
+- Bcrypt password hashing
+- Role-based access control
+- Input validation
+- SQL injection prevention (Prisma)
+- CORS configuration
+- Environment variable protection
 
-**Create Corrective Action:**
-```graphql
-mutation {
-  createCorrectiveAction(input: {
-    action: "Update labeling SOP and retrain staff"
-    nonConformanceId: "clx..."
-    assignedTo: "user-id"
-    dueDate: "2026-05-01"
-  }) {
-    id
-    action
-    status
-    assignedTo {
-      name
-      email
-    }
-  }
-}
-```
+## 📈 Database Schema
 
-### Authorization Rules
-
-| Operation | Required Role |
-|-----------|---------------|
-| Read queries | Authenticated user |
-| Document writes | ADMIN or MANAGER |
-| NonConformance writes | ADMIN or MANAGER |
-| CorrectiveAction writes | ADMIN or MANAGER |
-| User deletion | ADMIN only |
-
----
+The system includes models for:
+- **Users**: User management with roles
+- **Documents**: Document control system
+- **Non-Conformances**: Quality issues tracking
+- **Corrective Actions**: Action management
+- **Audit Logs**: Activity tracking
 
 ## 🧪 Testing
 
-### Run Tests
+Testing strategy:
+- **Jest** for unit testing
+- **Supertest** for API testing
+- **In-memory DB or test PostgreSQL** for data-layer tests
 
 ```bash
-# Run all tests
 npm test
-
-# Watch mode
-npm run test:watch
-
-# Coverage report
-npm run test:coverage
 ```
 
-**Current Coverage:** 91% (80 passing tests)
+## 📄 License
 
-Test Suites:
-- ✅ Service layer tests (business logic)
-- ✅ Resolver tests (GraphQL layer)
-- ✅ Shared utilities tests
-- ✅ API integration tests
+ISC
 
----
+## 👥 Contributing
 
-## 🏗️ Architecture Overview
+1. Fork the repository
+2. Create your feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
+# Global TODO Roadmap
 
-### Clean 3-Layer Architecture
+### API & Business Logic
+- Add Zod input validation for Document, NonConformance, and CorrectiveAction mutations.
+- Add richer filtering/sorting for list queries (date ranges, status, severity, assignee).
+- Add pagination defaults/limits at resolver level to prevent unbounded queries.
+- Add full AuditLog writes for create/update/archive/close/complete operations.
 
-```
-┌─────────────────────────────────────────┐
-│   GraphQL Resolvers (Presentation)      │
-│   - Receive requests                     │
-│   - Forward to services                  │
-│   - Return responses                     │
-└─────────────┬───────────────────────────┘
-              │
-              ▼
-┌─────────────────────────────────────────┐
-│   Services (Business Logic)              │
-│   - Authorization checks                 │
-│   - Validation                           │
-│   - Workflow orchestration               │
-└─────────────┬───────────────────────────┘
-              │
-              ▼
-┌─────────────────────────────────────────┐
-│   Repositories (Data Access)             │
-│   - Prisma queries                       │
-│   - Database operations                  │
-│   - Transaction management               │
-└─────────────┬───────────────────────────┘
-              │
-              ▼
-┌─────────────────────────────────────────┐
-│   PostgreSQL Database                    │
-└─────────────────────────────────────────┘
-```
+### Security & Access Control
+- Add role guards to User module writes (explicit ADMIN/MANAGER boundaries).
+- Add token refresh/logout flow.
+- Add rate limiting and basic abuse protection on auth mutations.
 
-**Key Principles:**
-- 🔒 Separation of concerns
-- 🧪 Testable layers (mocked dependencies)
-- 🔄 Clean data flow
-- 📦 Modular architecture
+### Data & Database
+- Add realistic seed data for Document, NonConformance, CorrectiveAction, and AuditLog.
+- Replace `prisma db push` development flow with Prisma migrations for all environments.
+- Add migration/seed scripts for staging/production promotion.
 
-**[Read Full Architecture Documentation](./ARCHITECTURE.md)**
+### Testing & Quality
+- Add service-layer unit tests (not only resolver tests).
+- Add integration tests against test PostgreSQL for full GraphQL flows.
+- Add negative-path tests for permissions and validation errors.
+- Keep coverage thresholds enforced in CI.
 
----
-
-## 📊 Database Schema
-
-### Core Entities
-
-- **User** - System users with roles and authentication
-- **Document** - Quality documents (policies, procedures, forms, records)
-- **NonConformance** - Quality issues and deviations
-- **CorrectiveAction** - Actions to address non-conformances
-- **AuditLog** - Activity tracking for compliance
-
-### Relationships
-
-```
-User ──1:N─→ Document
-User ──1:N─→ NonConformance (created by)
-User ──1:N─→ CorrectiveAction (assigned to)
-NonConformance ──1:N─→ CorrectiveAction
-User ──1:N─→ AuditLog
-```
-
-### Enums
-
-- **Role:** ADMIN, MANAGER, USER, VIEWER
-- **DocumentType:** POLICY, PROCEDURE, FORM, RECORD
-- **DocumentStatus:** DRAFT, ACTIVE, ARCHIVED
-- **Severity:** LOW, MEDIUM, HIGH, CRITICAL
-- **NCStatus:** OPEN, UNDER_INVESTIGATION, CLOSED
-- **ActionStatus:** PENDING, IN_PROGRESS, DONE
-
----
-
-## 🔐 Security Features
-
-- ✅ JWT token authentication
-- ✅ Password hashing (bcrypt)
-- ✅ Role-based access control (RBAC)
-- ✅ Input validation
-- ✅ SQL injection protection (Prisma parameterization)
-- ✅ Error sanitization
-- 🔜 Rate limiting (planned)
-- 🔜 Refresh tokens (planned)
-- 🔜 Security headers (planned)
-
----
-
-## 🗺️ Roadmap & Enhancements
-
-**[View Full TODO & Roadmap](./TODO.md)** - 25+ planned enhancements
-
-### 🔥 High Priority (Sprint 1-2)
-- [ ] Input validation with Zod
-- [ ] Centralized audit logging
-- [ ] Transaction-safe workflows
-- [ ] Repository integration tests
-- [ ] CI/CD pipeline
-
-### 🔧 Medium Priority (Sprint 3-4)
-- [ ] Rate limiting & query complexity limits
-- [ ] Request ID tracing
-- [ ] Refresh token implementation
-- [ ] Performance monitoring
-- [ ] Caching layer (Redis)
-
-### 💡 Future Features
-- [ ] File upload support
-- [ ] Email notifications
-- [ ] GraphQL subscriptions (real-time)
-- [ ] Advanced full-text search
-- [ ] Mobile app
-
----
-
-## 📝 Useful Scripts
-
-```bash
-# Development
-npm run dev              # Start development server
-npm run build            # Build TypeScript
-npm start                # Start production server
-
-# Database
-npm run prisma:generate  # Generate Prisma client
-npm run prisma:migrate   # Run migrations (dev)
-npm run prisma:migrate:deploy  # Deploy migrations (prod)
-npm run prisma:seed      # Seed database
-npm run prisma:studio    # Open Prisma Studio
-
-# Testing & Quality
-npm test                 # Run tests
-npm run test:watch       # Watch mode
-npm run test:coverage    # Coverage report
-npm run lint             # Run ESLint
-npm run lint:fix         # Fix linting issues
-npm run format           # Format with Prettier
-
-# Utilities
-npm run clean            # Clean dist folder
-```
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome! Please follow these steps:
-
-1. **Fork the repository**
-2. **Create a feature branch** (`git checkout -b feature/amazing-feature`)
-3. **Switch to the appropriate branch:**
-   - Backend features: `git checkout backend`
-   - Frontend features: `git checkout frontend`
-4. **Make your changes**
-5. **Run tests** (`npm test`)
-6. **Commit your changes** (`git commit -m 'Add amazing feature'`)
-7. **Push to your fork** (`git push origin feature/amazing-feature`)
-8. **Open a Pull Request**
-
-### Development Guidelines
-
-- ✅ Write tests for new features
-- ✅ Follow existing code style (ESLint + Prettier)
-- ✅ Update documentation
-- ✅ Keep commits atomic and meaningful
-- ✅ Ensure all tests pass before submitting PR
-
----
-
-## 📂 Additional Documentation
-
-- **[ARCHITECTURE.md](./ARCHITECTURE.md)** - System design & architecture patterns
-- **[QUICK_START.md](./QUICK_START.md)** - Get started in 5 minutes
-- **[TODO.md](./TODO.md)** - Enhancement roadmap with detailed implementation plans
-
----
-
-## 📝 License
-
-This project is licensed under the **MIT License** - see the LICENSE file for details.
-
----
-
-## 👥 Team
-
-**ARCA Quality Management System** - Built with ❤️ for better quality management By WAEL AOUADHI 
-
----
-
-## 📞 Support
-
-- 📧 **Email:** wael.aouadhi@esprit.tn / 📞 WhatsAPP +21694603330
-- 📖 **Documentation:** [View Docs](https://github.com/waelaouadhi/ARCA-Quality-Management-System/tree/backend)
-- 🐛 **Issues:** [GitHub Issues](https://github.com/waelaouadhi/ARCA-Quality-Management-System/issues)
-- 💬 **Discussions:** [GitHub Discussions](https://github.com/waelaouadhi/ARCA-Quality-Management-System/discussions)
-
----
-
-## 🌟 Show Your Support
-
-If you find this project useful, please consider:
-- ⭐ Starring the repository
-- 🐛 Reporting bugs
-- 💡 Suggesting new features
-- 🔀 Contributing code
-- 📢 Sharing with others
-
----
-
-**Built with modern technologies for quality management excellence.**
-
-🔗 **Repository:** https://github.com/waelaouadhi/ARCA-Quality-Management-System
+### DevOps & Delivery
+- Add CI pipeline: lint, test, coverage, build on every PR.
+- Add environment-based config profiles (dev/staging/prod).
+- Add Docker compose for app + postgres local stack.
+- Add production runbook (backup, restore, migration, rollback).

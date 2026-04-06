@@ -1,7 +1,13 @@
-import { AuthorizationError, NotFoundError } from '@/shared/errors';
+import { AuthorizationError, NotFoundError, ValidationError } from '@/shared/errors';
 import { PaginationInput } from '@/shared/utils/pagination';
 import { JWTPayload } from '@/shared/utils/jwt';
 import { DocumentRepository } from './document.repository';
+import { z } from 'zod';
+import {
+  CreateDocumentInputSchema,
+  UpdateDocumentInputSchema,
+  DocumentIdSchema,
+} from './document.validation';
 
 interface CreateDocumentInput {
   title: string;
@@ -38,6 +44,15 @@ export class DocumentService {
   }
 
   async createDocument(input: CreateDocumentInput, currentUser?: JWTPayload) {
+    try {
+      CreateDocumentInputSchema.parse(input);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        throw new ValidationError(error.errors.map((e) => e.message).join(', '));
+      }
+      throw error;
+    }
+
     const user = this.requireDocumentWriteRole(currentUser);
     return this.documentRepository.createDocument(input, user.userId);
   }
@@ -52,6 +67,15 @@ export class DocumentService {
   }
 
   async getDocumentById(id: string, currentUser?: JWTPayload) {
+    try {
+      DocumentIdSchema.parse(id);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        throw new ValidationError(error.errors.map((e) => e.message).join(', '));
+      }
+      throw error;
+    }
+
     this.requireAuthenticatedUser(currentUser);
     const document = await this.documentRepository.getDocumentById(id);
 
@@ -63,12 +87,39 @@ export class DocumentService {
   }
 
   async updateDocument(id: string, input: UpdateDocumentInput, currentUser?: JWTPayload) {
+    try {
+      DocumentIdSchema.parse(id);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        throw new ValidationError(error.errors.map((e) => e.message).join(', '));
+      }
+      throw error;
+    }
+
+    try {
+      UpdateDocumentInputSchema.parse(input);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        throw new ValidationError(error.errors.map((e) => e.message).join(', '));
+      }
+      throw error;
+    }
+
     this.requireDocumentWriteRole(currentUser);
     await this.getDocumentById(id, currentUser);
     return this.documentRepository.updateDocument(id, input);
   }
 
   async archiveDocument(id: string, currentUser?: JWTPayload) {
+    try {
+      DocumentIdSchema.parse(id);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        throw new ValidationError(error.errors.map((e) => e.message).join(', '));
+      }
+      throw error;
+    }
+
     this.requireDocumentWriteRole(currentUser);
     await this.getDocumentById(id, currentUser);
     return this.documentRepository.archiveDocument(id);

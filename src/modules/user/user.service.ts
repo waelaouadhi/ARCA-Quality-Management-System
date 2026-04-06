@@ -1,7 +1,9 @@
-import { NotFoundError, AuthorizationError } from '@/shared/errors';
+import { NotFoundError, AuthorizationError, ValidationError } from '@/shared/errors';
 import { PaginationInput } from '@/shared/utils/pagination';
 import { JWTPayload } from '@/shared/utils/jwt';
 import { UserRepository } from './user.repository';
+import { UpdateUserInputSchema, UserIdSchema } from './user.validation';
+import { z } from 'zod';
 
 export class UserService {
   constructor(private readonly userRepository = new UserRepository()) {}
@@ -29,6 +31,16 @@ export class UserService {
   }
 
   async getUserById(id: string, currentUser?: JWTPayload) {
+    // Validate ID
+    try {
+      UserIdSchema.parse(id);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        throw new ValidationError(error.errors.map((e) => e.message).join(', '));
+      }
+      throw error;
+    }
+
     this.requireAuthenticatedUser(currentUser);
     const user = await this.userRepository.getUserById(id);
 
@@ -45,6 +57,16 @@ export class UserService {
   }
 
   async deleteUser(id: string, currentUser?: JWTPayload) {
+    // Validate ID
+    try {
+      UserIdSchema.parse(id);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        throw new ValidationError(error.errors.map((e) => e.message).join(', '));
+      }
+      throw error;
+    }
+
     this.requireAdminUser(currentUser);
     await this.userRepository.deleteUser(id);
     return true;

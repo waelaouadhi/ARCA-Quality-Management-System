@@ -1,13 +1,29 @@
 import { hashPassword, comparePassword } from '@/shared/utils/password';
 import { generateToken } from '@/shared/utils/jwt';
-import { AuthenticationError, ConflictError, NotFoundError } from '@/shared/errors';
+import { AuthenticationError, ConflictError, NotFoundError, ValidationError } from '@/shared/errors';
 import { JWTPayload } from '@/shared/utils/jwt';
 import { AuthRepository } from './auth.repository';
+import { RegisterInputSchema, LoginInputSchema } from './auth.validation';
+import { z } from 'zod';
 
 export class AuthService {
   constructor(private readonly authRepository = new AuthRepository()) {}
 
   async register(email: string, password: string, firstName: string, lastName: string) {
+    // Validate input
+    try {
+      RegisterInputSchema.parse({
+        email,
+        password,
+        name: `${firstName} ${lastName}`.trim(),
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        throw new ValidationError(error.errors.map((e) => e.message).join(', '));
+      }
+      throw error;
+    }
+
     const existingUser = await this.authRepository.findUserByEmail(email);
 
     if (existingUser) {
@@ -33,6 +49,16 @@ export class AuthService {
   }
 
   async login(email: string, password: string) {
+    // Validate input
+    try {
+      LoginInputSchema.parse({ email, password });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        throw new ValidationError(error.errors.map((e) => e.message).join(', '));
+      }
+      throw error;
+    }
+
     const user = await this.authRepository.findUserByEmail(email);
 
     if (!user) {
