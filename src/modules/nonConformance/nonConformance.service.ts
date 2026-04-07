@@ -1,6 +1,6 @@
-import { AuthorizationError, NotFoundError, ValidationError } from '@/shared/errors';
+import { NotFoundError, ValidationError } from '@/shared/errors';
 import { PaginationInput } from '@/shared/utils/pagination';
-import { JWTPayload } from '@/shared/utils/jwt';
+import { JWTPayload, requireAuthentication, AuthorizationPolicies, createAuthContext } from '@/shared/utils';
 import { NonConformanceRepository } from './nonConformance.repository';
 import { z } from 'zod';
 import {
@@ -25,27 +25,8 @@ interface UpdateNonConformanceInput {
   status?: NCStatus;
 }
 
-const NON_CONFORMANCE_WRITE_ROLES = new Set(['ADMIN', 'MANAGER']);
-
 export class NonConformanceService {
   constructor(private readonly nonConformanceRepository = new NonConformanceRepository()) {}
-
-  private requireAuthenticatedUser(user?: JWTPayload): JWTPayload {
-    if (!user) {
-      throw new AuthorizationError();
-    }
-
-    return user;
-  }
-
-  private requireNonConformanceWriteRole(user?: JWTPayload): JWTPayload {
-    const currentUser = this.requireAuthenticatedUser(user);
-    if (!NON_CONFORMANCE_WRITE_ROLES.has(currentUser.role)) {
-      throw new AuthorizationError('NonConformance write access requires ADMIN or MANAGER role');
-    }
-
-    return currentUser;
-  }
 
   async createNonConformance(input: CreateNonConformanceInput, currentUser?: JWTPayload) {
     try {
@@ -57,7 +38,11 @@ export class NonConformanceService {
       throw error;
     }
 
-    const user = this.requireNonConformanceWriteRole(currentUser);
+    const user = requireAuthentication(currentUser);
+    
+    // Check authorization
+    AuthorizationPolicies.nonConformance.create().authorize(createAuthContext(user, 'create'));
+
     return this.nonConformanceRepository.createNonConformance(input, user.userId);
   }
 
@@ -66,7 +51,11 @@ export class NonConformanceService {
     filters: { status?: NCStatus; severity?: Severity; reportedById?: string } = {},
     currentUser?: JWTPayload
   ) {
-    this.requireAuthenticatedUser(currentUser);
+    const user = requireAuthentication(currentUser);
+    
+    // Check authorization
+    AuthorizationPolicies.nonConformance.read().authorize(createAuthContext(user, 'read'));
+
     return this.nonConformanceRepository.getNonConformances(paginationInput, filters);
   }
 
@@ -80,12 +69,17 @@ export class NonConformanceService {
       throw error;
     }
 
-    this.requireAuthenticatedUser(currentUser);
+    const user = requireAuthentication(currentUser);
     const nonConformance = await this.nonConformanceRepository.getNonConformanceById(id);
 
     if (!nonConformance) {
       throw new NotFoundError('Non-conformance not found');
     }
+
+    // Check authorization
+    AuthorizationPolicies.nonConformance.read().authorize(
+      createAuthContext(user, 'read', { reportedById: nonConformance.reportedById })
+    );
 
     return nonConformance;
   }
@@ -109,8 +103,18 @@ export class NonConformanceService {
       throw error;
     }
 
-    this.requireNonConformanceWriteRole(currentUser);
-    await this.getNonConformanceById(id, currentUser);
+    const user = requireAuthentication(currentUser);
+    const nonConformance = await this.nonConformanceRepository.getNonConformanceById(id);
+
+    if (!nonConformance) {
+      throw new NotFoundError('Non-conformance not found');
+    }
+
+    // Resource-based authorization: ADMIN/MANAGER or creator can update
+    AuthorizationPolicies.nonConformance.update().authorize(
+      createAuthContext(user, 'update', { reportedById: nonConformance.reportedById })
+    );
+
     return this.nonConformanceRepository.updateNonConformance(id, input);
   }
 
@@ -124,12 +128,21 @@ export class NonConformanceService {
       throw error;
     }
 
-    this.requireNonConformanceWriteRole(currentUser);
-    const nonConformance = await this.getNonConformanceById(id, currentUser);
+    const user = requireAuthentication(currentUser);
+    const nonConformance = await this.nonConformanceRepository.getNonConformanceById(id);
+
+    if (!nonConformance) {
+      throw new NotFoundError('Non-conformance not found');
+    }
 
     if (nonConformance.status === 'CLOSED') {
       throw new ValidationError('Non-conformance is already closed');
     }
+
+    // Resource-based authorization: ADMIN/MANAGER or creator can close
+    AuthorizationPolicies.nonConformance.update().authorize(
+      createAuthContext(user, 'update', { reportedById: nonConformance.reportedById })
+    );
 
     return this.nonConformanceRepository.closeNonConformance(id);
   }

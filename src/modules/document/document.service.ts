@@ -1,6 +1,6 @@
-import { AuthorizationError, NotFoundError, ValidationError } from '@/shared/errors';
+import { NotFoundError, ValidationError } from '@/shared/errors';
 import { PaginationInput } from '@/shared/utils/pagination';
-import { JWTPayload } from '@/shared/utils/jwt';
+import { JWTPayload, requireAuthentication, AuthorizationPolicies, createAuthContext } from '@/shared/utils';
 import { DocumentRepository } from './document.repository';
 import { z } from 'zod';
 import {
@@ -21,27 +21,8 @@ interface UpdateDocumentInput {
   status?: 'DRAFT' | 'REVIEW' | 'APPROVED' | 'ARCHIVED';
 }
 
-const DOCUMENT_WRITE_ROLES = new Set(['ADMIN', 'MANAGER']);
-
 export class DocumentService {
   constructor(private readonly documentRepository = new DocumentRepository()) {}
-
-  private requireAuthenticatedUser(user?: JWTPayload): JWTPayload {
-    if (!user) {
-      throw new AuthorizationError();
-    }
-
-    return user;
-  }
-
-  private requireDocumentWriteRole(user?: JWTPayload): JWTPayload {
-    const currentUser = this.requireAuthenticatedUser(user);
-    if (!DOCUMENT_WRITE_ROLES.has(currentUser.role)) {
-      throw new AuthorizationError('Document write access requires ADMIN or MANAGER role');
-    }
-
-    return currentUser;
-  }
 
   async createDocument(input: CreateDocumentInput, currentUser?: JWTPayload) {
     try {
@@ -53,7 +34,11 @@ export class DocumentService {
       throw error;
     }
 
-    const user = this.requireDocumentWriteRole(currentUser);
+    const user = requireAuthentication(currentUser);
+    
+    // Check authorization
+    AuthorizationPolicies.document.create().authorize(createAuthContext(user, 'create'));
+
     return this.documentRepository.createDocument(input, user.userId);
   }
 
@@ -62,7 +47,11 @@ export class DocumentService {
     status?: 'DRAFT' | 'REVIEW' | 'APPROVED' | 'ARCHIVED',
     currentUser?: JWTPayload
   ) {
-    this.requireAuthenticatedUser(currentUser);
+    const user = requireAuthentication(currentUser);
+    
+    // Check authorization
+    AuthorizationPolicies.document.read().authorize(createAuthContext(user, 'read'));
+
     return this.documentRepository.getDocuments(paginationInput, status);
   }
 
@@ -76,12 +65,17 @@ export class DocumentService {
       throw error;
     }
 
-    this.requireAuthenticatedUser(currentUser);
+    const user = requireAuthentication(currentUser);
     const document = await this.documentRepository.getDocumentById(id);
 
     if (!document) {
       throw new NotFoundError('Document not found');
     }
+
+    // Check authorization
+    AuthorizationPolicies.document.read().authorize(
+      createAuthContext(user, 'read', { createdById: document.createdById })
+    );
 
     return document;
   }
@@ -105,8 +99,18 @@ export class DocumentService {
       throw error;
     }
 
-    this.requireDocumentWriteRole(currentUser);
-    await this.getDocumentById(id, currentUser);
+    const user = requireAuthentication(currentUser);
+    const document = await this.documentRepository.getDocumentById(id);
+
+    if (!document) {
+      throw new NotFoundError('Document not found');
+    }
+
+    // Resource-based authorization: ADMIN/MANAGER or creator can update
+    AuthorizationPolicies.document.update().authorize(
+      createAuthContext(user, 'update', { createdById: document.createdById })
+    );
+
     return this.documentRepository.updateDocument(id, input);
   }
 
@@ -120,8 +124,18 @@ export class DocumentService {
       throw error;
     }
 
-    this.requireDocumentWriteRole(currentUser);
-    await this.getDocumentById(id, currentUser);
+    const user = requireAuthentication(currentUser);
+    const document = await this.documentRepository.getDocumentById(id);
+
+    if (!document) {
+      throw new NotFoundError('Document not found');
+    }
+
+    // Resource-based authorization: ADMIN/MANAGER or creator can archive
+    AuthorizationPolicies.document.update().authorize(
+      createAuthContext(user, 'update', { createdById: document.createdById })
+    );
+
     return this.documentRepository.archiveDocument(id);
   }
 }

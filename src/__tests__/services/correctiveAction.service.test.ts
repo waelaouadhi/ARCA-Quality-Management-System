@@ -33,7 +33,7 @@ describe('CorrectiveActionService', () => {
 
     await expect(
       service.createCorrectiveAction({ action: 'Fix label', nonConformanceId: '550e8400-e29b-41d4-a716-446655440011' }, normalUser)
-    ).rejects.toThrow('CorrectiveAction write access requires ADMIN or MANAGER role');
+    ).rejects.toThrow('Insufficient permissions for this action');
   });
 
   it('throws not found when completing missing action', async () => {

@@ -1,6 +1,6 @@
-import { AuthorizationError, NotFoundError, ValidationError } from '@/shared/errors';
+import { NotFoundError, ValidationError } from '@/shared/errors';
 import { PaginationInput } from '@/shared/utils/pagination';
-import { JWTPayload } from '@/shared/utils/jwt';
+import { JWTPayload, requireAuthentication, AuthorizationPolicies, createAuthContext } from '@/shared/utils';
 import { CorrectiveActionRepository } from './correctiveAction.repository';
 import { z } from 'zod';
 import {
@@ -25,27 +25,8 @@ interface UpdateCorrectiveActionInput {
   status?: ActionStatus;
 }
 
-const ACTION_WRITE_ROLES = new Set(['ADMIN', 'MANAGER']);
-
 export class CorrectiveActionService {
   constructor(private readonly correctiveActionRepository = new CorrectiveActionRepository()) {}
-
-  private requireAuthenticatedUser(user?: JWTPayload): JWTPayload {
-    if (!user) {
-      throw new AuthorizationError();
-    }
-
-    return user;
-  }
-
-  private requireActionWriteRole(user?: JWTPayload): JWTPayload {
-    const currentUser = this.requireAuthenticatedUser(user);
-    if (!ACTION_WRITE_ROLES.has(currentUser.role)) {
-      throw new AuthorizationError('CorrectiveAction write access requires ADMIN or MANAGER role');
-    }
-
-    return currentUser;
-  }
 
   async createCorrectiveAction(input: CreateCorrectiveActionInput, currentUser?: JWTPayload) {
     try {
@@ -57,7 +38,11 @@ export class CorrectiveActionService {
       throw error;
     }
 
-    this.requireActionWriteRole(currentUser);
+    const user = requireAuthentication(currentUser);
+    
+    // Check authorization
+    AuthorizationPolicies.correctiveAction.create().authorize(createAuthContext(user, 'create'));
+
     return this.correctiveActionRepository.createCorrectiveAction(input);
   }
 
@@ -66,7 +51,11 @@ export class CorrectiveActionService {
     filters: { status?: ActionStatus; nonConformanceId?: string; assignedToId?: string } = {},
     currentUser?: JWTPayload
   ) {
-    this.requireAuthenticatedUser(currentUser);
+    const user = requireAuthentication(currentUser);
+    
+    // Check authorization
+    AuthorizationPolicies.correctiveAction.read().authorize(createAuthContext(user, 'read'));
+
     return this.correctiveActionRepository.getCorrectiveActions(paginationInput, filters);
   }
 
@@ -80,12 +69,17 @@ export class CorrectiveActionService {
       throw error;
     }
 
-    this.requireAuthenticatedUser(currentUser);
+    const user = requireAuthentication(currentUser);
     const action = await this.correctiveActionRepository.getCorrectiveActionById(id);
 
     if (!action) {
       throw new NotFoundError('Corrective action not found');
     }
+
+    // Check authorization
+    AuthorizationPolicies.correctiveAction.read().authorize(
+      createAuthContext(user, 'read', { assignedToId: action.assignedToId })
+    );
 
     return action;
   }
@@ -109,8 +103,18 @@ export class CorrectiveActionService {
       throw error;
     }
 
-    this.requireActionWriteRole(currentUser);
-    await this.getCorrectiveActionById(id, currentUser);
+    const user = requireAuthentication(currentUser);
+    const action = await this.correctiveActionRepository.getCorrectiveActionById(id);
+
+    if (!action) {
+      throw new NotFoundError('Corrective action not found');
+    }
+
+    // Resource-based authorization: ADMIN/MANAGER or assigned user can update
+    AuthorizationPolicies.correctiveAction.update().authorize(
+      createAuthContext(user, 'update', { assignedToId: action.assignedToId })
+    );
+
     return this.correctiveActionRepository.updateCorrectiveAction(id, input);
   }
 
@@ -124,12 +128,21 @@ export class CorrectiveActionService {
       throw error;
     }
 
-    this.requireActionWriteRole(currentUser);
-    const action = await this.getCorrectiveActionById(id, currentUser);
+    const user = requireAuthentication(currentUser);
+    const action = await this.correctiveActionRepository.getCorrectiveActionById(id);
+
+    if (!action) {
+      throw new NotFoundError('Corrective action not found');
+    }
 
     if (action.status === 'DONE') {
       throw new ValidationError('Corrective action is already completed');
     }
+
+    // Resource-based authorization: ADMIN/MANAGER or assigned user can complete
+    AuthorizationPolicies.correctiveAction.update().authorize(
+      createAuthContext(user, 'update', { assignedToId: action.assignedToId })
+    );
 
     return this.correctiveActionRepository.completeCorrectiveAction(id);
   }

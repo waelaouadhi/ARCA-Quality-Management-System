@@ -29,7 +29,7 @@ describe('DocumentService', () => {
     const service = new DocumentService(repository as never);
 
     await expect(service.createDocument({ title: 'SOP 001', content: 'Content' }, normalUser)).rejects.toThrow(
-      'Document write access requires ADMIN or MANAGER role'
+      'Insufficient permissions for this action'
     );
   });
 

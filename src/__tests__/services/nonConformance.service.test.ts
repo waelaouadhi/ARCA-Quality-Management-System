@@ -31,13 +31,22 @@ describe('NonConformanceService', () => {
     expect(result).toEqual(created);
   });
 
-  it('rejects create for USER role', async () => {
+  it('creates non-conformance for USER role', async () => {
     const repository = createRepository();
     const service = new NonConformanceService(repository as never);
+    const created = { id: 'n1', title: 'Issue' };
+    repository.createNonConformance.mockResolvedValue(created);
 
-    await expect(
-      service.createNonConformance({ title: 'Issue', description: 'This is a detailed description', severity: 'HIGH' }, normalUser)
-    ).rejects.toThrow('NonConformance write access requires ADMIN or MANAGER role');
+    const result = await service.createNonConformance(
+      { title: 'Issue', description: 'This is a detailed description', severity: 'HIGH' },
+      normalUser
+    );
+
+    expect(repository.createNonConformance).toHaveBeenCalledWith(
+      { title: 'Issue', description: 'This is a detailed description', severity: 'HIGH' },
+      '550e8400-e29b-41d4-a716-446655440001'
+    );
+    expect(result).toEqual(created);
   });
 
   it('throws not found when closing missing non-conformance', async () => {
