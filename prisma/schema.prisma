@@ -46,6 +46,35 @@ enum ActionStatus {
   DONE
 }
 
+enum EscalationLevel {
+  NONE
+  LEVEL_1
+  LEVEL_2
+  LEVEL_3
+}
+
+enum EscalationStatus {
+  NONE
+  ACTIVE
+  RESOLVED
+  PAUSED
+}
+
+enum NotificationChannel {
+  EMAIL
+  IN_APP
+  WEBSOCKET
+  SMS
+  SLACK
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+  RETRYING
+}
+
 //
 // =======================
 // USER MODULE
@@ -101,14 +130,20 @@ model NonConformance {
   description       String
   severity          Severity @default(MEDIUM)
   status            NCStatus @default(OPEN)
+  dueDate           DateTime?
 
   reportedById      String
   reportedBy        User     @relation("ReportedBy", fields: [reportedById], references: [id])
 
   correctiveActions CorrectiveAction[]
+  escalation        NonConformanceEscalation?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  
+  @@index([severity])
+  @@index([status])
+  @@index([dueDate])
 }
 
 //
@@ -129,9 +164,14 @@ model CorrectiveAction {
   assignedTo       User?        @relation("AssignedTo", fields: [assignedToId], references: [id])
 
   dueDate          DateTime?
+  escalation       CorrectiveActionEscalation?
 
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
+  
+  @@index([status])
+  @@index([dueDate])
+  @@index([assignedToId])
 }
 
 //
@@ -151,4 +191,210 @@ model AuditLog {
   user      User?    @relation(fields: [userId], references: [id])
 
   createdAt DateTime @default(now())
+}
+
+//
+// =======================
+// ESCALATION MODULE
+// =======================
+//
+
+/**
+ * SLA Rules for escalation timing
+ * Database-driven configuration
+ */
+model SLARule {
+  id                String   @id @default(cuid())
+  
+  // Rule identification
+  name              String   @unique
+  description       String?
+  
+  // Scope
+  severity          Severity
+  departmentId      String?  // Optional: for department-specific SLAs
+  
+  // Escalation config
+  escalationLevels  EscalationLevel[] @default([LEVEL_1, LEVEL_2, LEVEL_3])
+  
+  // Timing (in hours)
+  level1DelayHours  Int      @default(0)   // Immediate to Level 1
+  level2DelayHours  Int      @default(24)  // Level 2 after X hours
+  level3DelayHours  Int      @default(48)  // Level 3 after Y hours
+  
+  // Recipients
+  level1Recipients  String[] @default([])  // Assigned user + manager
+  level2Recipients  String[] @default([])  // Manager + admin
+  level3Recipients  String[] @default([])  // Admin only
+  
+  // Notification config
+  notifyChannels    NotificationChannel[] @default([EMAIL, IN_APP])
+  
+  // Status
+  isActive          Boolean  @default(true)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([severity])
+  @@index([departmentId])
+  @@index([isActive])
+}
+
+/**
+ * Escalation state for NonConformance
+ */
+model NonConformanceEscalation {
+  id                String   @id @default(cuid())
+  
+  nonConformanceId  String   @unique
+  nonConformance    NonConformance @relation(fields: [nonConformanceId], references: [id], onDelete: Cascade)
+  
+  // Current escalation state
+  currentLevel      EscalationLevel @default(NONE)
+  escalationStatus  EscalationStatus @default(NONE)
+  
+  // Timing
+  isOverdue         Boolean  @default(false)
+  overdueAt         DateTime?
+  lastEscalatedAt   DateTime?
+  nextEscalationAt  DateTime?
+  
+  // SLA reference
+  appliedSLARuleId  String?
+  appliedSLARule    SLARule? @relation(fields: [appliedSLARuleId], references: [id])
+  
+  // Escalation chain tracking
+  level1NotifiedAt  DateTime?
+  level2NotifiedAt  DateTime?
+  level3NotifiedAt  DateTime?
+  
+  // Acknowledgment tracking
+  acknowledgedAt    DateTime?
+  acknowledgedBy    String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  escalationHistory EscalationHistory[]
+  
+  @@index([nonConformanceId])
+  @@index([escalationStatus])
+  @@index([isOverdue])
+  @@index([nextEscalationAt])
+}
+
+/**
+ * Escalation state for CorrectiveAction
+ */
+model CorrectiveActionEscalation {
+  id                String   @id @default(cuid())
+  
+  correctiveActionId String   @unique
+  correctiveAction  CorrectiveAction @relation(fields: [correctiveActionId], references: [id], onDelete: Cascade)
+  
+  // Current escalation state
+  currentLevel      EscalationLevel @default(NONE)
+  escalationStatus  EscalationStatus @default(NONE)
+  
+  // Timing
+  isOverdue         Boolean  @default(false)
+  overdueAt         DateTime?
+  lastEscalatedAt   DateTime?
+  nextEscalationAt  DateTime?
+  
+  // SLA reference
+  appliedSLARuleId  String?
+  appliedSLARule    SLARule? @relation(fields: [appliedSLARuleId], references: [id])
+  
+  // Escalation chain tracking
+  level1NotifiedAt  DateTime?
+  level2NotifiedAt  DateTime?
+  level3NotifiedAt  DateTime?
+  
+  // Acknowledgment tracking
+  acknowledgedAt    DateTime?
+  acknowledgedBy    String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  escalationHistory EscalationHistory[]
+  
+  @@index([correctiveActionId])
+  @@index([escalationStatus])
+  @@index([isOverdue])
+  @@index([nextEscalationAt])
+}
+
+/**
+ * Audit trail for all escalation events
+ */
+model EscalationHistory {
+  id                String   @id @default(cuid())
+  
+  // Escalation context
+  ncEscalationId    String?
+  ncEscalation      NonConformanceEscalation? @relation(fields: [ncEscalationId], references: [id], onDelete: Cascade)
+  
+  caEscalationId    String?
+  caEscalation      CorrectiveActionEscalation? @relation(fields: [caEscalationId], references: [id], onDelete: Cascade)
+  
+  // Event details
+  eventType         String   // e.g., "OVERDUE_DETECTED", "ESCALATED_TO_LEVEL_2", "ACKNOWLEDGED"
+  escalationLevel   EscalationLevel
+  reason            String?
+  
+  // Who triggered this
+  triggeredBy       String?  // system, user email, etc.
+  
+  // Notification details
+  notificationsId   String[] @default([])  // References to Notification records
+  
+  createdAt DateTime @default(now())
+  
+  @@index([ncEscalationId])
+  @@index([caEscalationId])
+  @@index([eventType])
+  @@index([createdAt])
+}
+
+/**
+ * Notification record for audit and retry tracking
+ */
+model Notification {
+  id                String   @id @default(cuid())
+  
+  // Notification details
+  entityType        String   // "NonConformance" or "CorrectiveAction"
+  entityId          String
+  escalationLevel   EscalationLevel
+  
+  // Recipient
+  recipientEmail    String?
+  recipientUserId   String?
+  
+  // Channels
+  channels          NotificationChannel[]
+  channelStatuses   String   @default("{}")  // JSON: { "EMAIL": "SENT", "IN_APP": "PENDING" }
+  
+  // Retry tracking
+  status            NotificationStatus @default(PENDING)
+  retryCount        Int      @default(0)
+  maxRetries        Int      @default(3)
+  lastRetryAt       DateTime?
+  nextRetryAt       DateTime?
+  failureReason     String?
+  
+  // Idempotency
+  idempotencyKey    String   @unique
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  sentAt    DateTime?
+  
+  @@index([entityType, entityId])
+  @@index([status])
+  @@index([nextRetryAt])
+  @@index([idempotencyKey])
 }
