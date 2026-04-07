@@ -1,0 +1,269 @@
+// This is an updated schema with scope-based access control
+// Migration file will be generated separately
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+//
+// =======================
+// ENUMS
+// =======================
+//
+
+enum Role {
+  ADMIN
+  MANAGER
+  USER
+}
+
+enum DocStatus {
+  DRAFT
+  REVIEW
+  APPROVED
+  ARCHIVED
+}
+
+enum Severity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum NCStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum ActionStatus {
+  PENDING
+  IN_PROGRESS
+  DONE
+}
+
+//
+// =======================
+// SCOPE MODULE (NEW)
+// =======================
+//
+
+model Scope {
+  id          String   @id @default(cuid())
+  name        String   @unique  // e.g., "packaging", "production", "quality"
+  description String?
+  isActive    Boolean  @default(true)
+
+  // Many-to-many with Users
+  users               UserScope[]
+
+  // Resources belonging to this scope
+  nonConformances     NonConformance[]
+  documents           Document[]
+  correctiveActions   CorrectiveAction[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([name])
+  @@index([isActive])
+}
+
+//
+// =======================
+// USER-SCOPE JUNCTION (NEW)
+// =======================
+//
+
+model UserScope {
+  userId    String
+  scopeId   String
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scope     Scope    @relation(fields: [scopeId], references: [id], onDelete: Cascade)
+
+  assignedAt DateTime @default(now())
+
+  @@id([userId, scopeId])
+  @@index([userId])
+  @@index([scopeId])
+}
+
+//
+// =======================
+// USER MODULE
+// =======================
+//
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  firstName String
+  lastName  String
+  role      Role     @default(USER)
+
+  // Scope relationships (many-to-many)
+  scopes                   UserScope[]
+
+  documents                Document[]
+  audits                   AuditLog[]
+  reportedNonConformances  NonConformance[] @relation("ReportedBy")
+  assignedActions          CorrectiveAction[] @relation("AssignedTo")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+  @@index([role])
+}
+
+//
+// =======================
+// DOCUMENT CONTROL MODULE
+// =======================
+//
+
+model Document {
+  id          String    @id @default(cuid())
+  title       String
+  content     String?
+  version     Int       @default(1)
+  status      DocStatus @default(DRAFT)
+
+  createdById String
+  createdBy   User      @relation(fields: [createdById], references: [id])
+
+  // Scope relationship (NEW)
+  scopeId     String
+  scope       Scope     @relation(fields: [scopeId], references: [id])
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([createdById])
+  @@index([scopeId])
+  @@index([status])
+  @@index([scopeId, status]) // Composite index for common queries
+}
+
+//
+// =======================
+// NON CONFORMANCE MODULE
+// =======================
+//
+
+model NonConformance {
+  id                String   @id @default(cuid())
+  title             String
+  description       String
+  severity          Severity @default(MEDIUM)
+  status            NCStatus @default(OPEN)
+
+  reportedById      String
+  reportedBy        User     @relation("ReportedBy", fields: [reportedById], references: [id])
+
+  // Scope relationship (NEW)
+  scopeId           String
+  scope             Scope    @relation(fields: [scopeId], references: [id])
+
+  correctiveActions CorrectiveAction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([reportedById])
+  @@index([scopeId])
+  @@index([status])
+  @@index([scopeId, status]) // Composite index for filtering by scope and status
+  @@index([scopeId, severity]) // Composite index for filtering by scope and severity
+}
+
+//
+// =======================
+// CORRECTIVE ACTION MODULE
+// =======================
+//
+
+model CorrectiveAction {
+  id               String       @id @default(cuid())
+  action           String
+  status           ActionStatus @default(PENDING)
+
+  nonConformanceId String
+  nonConformance   NonConformance @relation(fields: [nonConformanceId], references: [id])
+
+  assignedToId     String?
+  assignedTo       User?        @relation("AssignedTo", fields: [assignedToId], references: [id])
+
+  // Scope relationship (NEW) - inherited from NonConformance by default
+  scopeId          String
+  scope            Scope        @relation(fields: [scopeId], references: [id])
+
+  dueDate          DateTime?
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([assignedToId])
+  @@index([scopeId])
+  @@index([status])
+  @@index([scopeId, status]) // Composite index for scope-filtered queries
+  @@index([nonConformanceId])
+}
+
+//
+// =======================
+// AUDIT LOG MODULE
+// =======================
+//
+
+model AuditLog {
+  id        String   @id @default(cuid())
+
+  action    String
+  entity    String
+  entityId  String
+
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+
+  // Optional: Track scope context for audit trail
+  scopeId   String?
+  metadata  Json?    // Store additional context (e.g., scope changes)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([entity])
+  @@index([entityId])
+  @@index([createdAt])
+}
+
+//
+// =======================
+// PERFORMANCE NOTES
+// =======================
+//
+// 1. Indexes added for:
+//    - scopeId on all scoped resources (Document, NonConformance, CorrectiveAction)
+//    - Composite indexes on (scopeId, status) for common filtering patterns
+//    - UserScope junction table for efficient many-to-many lookups
+//
+// 2. Query Optimization:
+//    - Use `include: { scopes: true }` sparingly (only when needed)
+//    - Prefer `select: { scopes: { select: { scopeId: true } } }` for scope IDs only
+//    - Use `IN` queries for multi-scope users: WHERE scopeId IN (user.scopeIds)
+//
+// 3. Caching Strategies:
+//    - Cache user scope IDs in JWT payload or Redis
+//    - Cache scope list (rarely changes)
+//    - Consider materialized views for complex scope-based reports
+//
