@@ -1,0 +1,319 @@
+{
+  "summary": {
+    "totalTests": 23,
+    "passed": 21,
+    "failed": 2,
+    "successRate": "91.30%",
+    "healthScore": "94/100",
+    "duration": "314ms",
+    "timestamp": "2026-04-07T11:09:47.370Z"
+  },
+  "tests": [
+    {
+      "name": "GET /health endpoint",
+      "status": "PASS",
+      "duration": 17,
+      "error": null,
+      "data": {
+        "responseTime": 17
+      }
+    },
+    {
+      "name": "GraphQL introspection",
+      "status": "PASS",
+      "duration": 3,
+      "error": null,
+      "data": {
+        "responseTime": 3
+      }
+    },
+    {
+      "name": "List all queries",
+      "status": "PASS",
+      "duration": 2,
+      "error": null,
+      "data": {
+        "count": 10
+      }
+    },
+    {
+      "name": "List all mutations",
+      "status": "PASS",
+      "duration": 2,
+      "error": null,
+      "data": {
+        "count": 14
+      }
+    },
+    {
+      "name": "Register new user successfully",
+      "status": "PASS",
+      "duration": 95,
+      "error": null,
+      "data": {
+        "userId": "cmnoiowm70007s7wwwmi4i5wl"
+      }
+    },
+    {
+      "name": "Registration duplicate email fails",
+      "status": "PASS",
+      "duration": 3,
+      "error": null,
+      "data": {
+        "errorHandled": true
+      }
+    },
+    {
+      "name": "Registration weak password fails",
+      "status": "PASS",
+      "duration": 2,
+      "error": null,
+      "data": {
+        "errorHandled": true
+      }
+    },
+    {
+      "name": "Login with valid credentials",
+      "status": "PASS",
+      "duration": 77,
+      "error": null,
+      "data": {
+        "responseTime": 76
+      }
+    },
+    {
+      "name": "Login with wrong password fails",
+      "status": "PASS",
+      "duration": 72,
+      "error": null,
+      "data": {
+        "errorHandled": true
+      }
+    },
+    {
+      "name": "Login with non-existent email fails",
+      "status": "PASS",
+      "duration": 2,
+      "error": null,
+      "data": {
+        "errorHandled": true
+      }
+    },
+    {
+      "name": "Query without authentication fails",
+      "status": "PASS",
+      "duration": 3,
+      "error": null,
+      "data": {
+        "authRequired": true
+      }
+    },
+    {
+      "name": "Query users with authentication",
+      "status": "PASS",
+      "duration": 15,
+      "error": null,
+      "data": {
+        "totalUsers": 11
+      }
+    },
+    {
+      "name": "Query single user by ID",
+      "status": "FAIL",
+      "duration": 2,
+      "error": "Value does not exist"
+    },
+    {
+      "name": "Query with pagination",
+      "status": "PASS",
+      "duration": 3,
+      "error": null,
+      "data": {
+        "paginationWorks": true
+      }
+    },
+    {
+      "name": "Invalid UUID returns error",
+      "status": "PASS",
+      "duration": 1,
+      "error": null,
+      "data": {
+        "errorHandled": true
+      }
+    },
+    {
+      "name": "Query documents without auth fails",
+      "status": "PASS",
+      "duration": 2,
+      "error": null,
+      "data": {
+        "authRequired": true
+      }
+    },
+    {
+      "name": "Query documents with authentication",
+      "status": "FAIL",
+      "duration": 1,
+      "error": "Expected 200, got 400"
+    },
+    {
+      "name": "Invalid GraphQL syntax",
+      "status": "PASS",
+      "duration": 1,
+      "error": null,
+      "data": {
+        "errorHandled": true
+      }
+    },
+    {
+      "name": "Missing required fields",
+      "status": "PASS",
+      "duration": 1,
+      "error": null,
+      "data": {
+        "errorHandled": true
+      }
+    },
+    {
+      "name": "Malformed JSON request",
+      "status": "PASS",
+      "duration": 1,
+      "error": null,
+      "data": {
+        "errorHandled": true
+      }
+    },
+    {
+      "name": "Health endpoint < 100ms",
+      "status": "PASS",
+      "duration": 0,
+      "error": null,
+      "data": {
+        "responseTime": 0
+      }
+    },
+    {
+      "name": "GraphQL query < 500ms",
+      "status": "PASS",
+      "duration": 3,
+      "error": null,
+      "data": {
+        "responseTime": 2
+      }
+    },
+    {
+      "name": "USER role can read data",
+      "status": "PASS",
+      "duration": 4,
+      "error": null,
+      "data": {
+        "readAccess": true
+      }
+    }
+  ],
+  "examples": {
+    "health": {
+      "request": "GET http://localhost:4000/health",
+      "response": {
+        "status": "ok",
+        "timestamp": "2026-04-07T11:09:47.072Z"
+      },
+      "statusCode": 200
+    },
+    "availableQueries": [
+      "_empty",
+      "me",
+      "users",
+      "user",
+      "documents",
+      "document",
+      "nonConformances",
+      "nonConformance",
+      "correctiveActions",
+      "correctiveAction"
+    ],
+    "availableMutations": [
+      "_empty",
+      "register",
+      "login",
+      "updateUser",
+      "deleteUser",
+      "createDocument",
+      "updateDocument",
+      "archiveDocument",
+      "createNonConformance",
+      "updateNonConformance",
+      "closeNonConformance",
+      "createCorrectiveAction",
+      "updateCorrectiveAction",
+      "completeCorrectiveAction"
+    ],
+    "registerSuccess": {
+      "request": {
+        "mutation": "\n      mutation Register($input: RegisterInput!) {\n        register(input: $input) {\n          token\n          user { id email firstName lastName role createdAt }\n        }\n      }\n    ",
+        "variables": {
+          "input": {
+            "firstName": "Validation",
+            "lastName": "Test",
+            "email": "api.validation.1775560187058@qms-test.com",
+            "password": "SecureValidation123!"
+          }
+        }
+      },
+      "response": {
+        "register": {
+          "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJjbW5vaW93bTcwMDA3czd3d3dtaTRpNXdsIiwiZW1haWwiOiJhcGkudmFsaWRhdGlvbi4xNzc1NTYwMTg3MDU4QHFtcy10ZXN0LmNvbSIsInJvbGUiOiJVU0VSIiwiaWF0IjoxNzc1NTYwMTg3LCJleHAiOjE3NzYxNjQ5ODd9.hz6Ly6XZhh_dSg-KZUmegiWPjhhcxBCBljKWfw0afp4",
+          "user": {
+            "id": "cmnoiowm70007s7wwwmi4i5wl",
+            "email": "api.validation.1775560187058@qms-test.com",
+            "firstName": "Validation",
+            "lastName": "Test",
+            "role": "USER",
+            "createdAt": "2026-04-07T11:09:47.168Z"
+          }
+        }
+      },
+      "statusCode": 200,
+      "responseTime": 95
+    },
+    "registerDuplicateError": {
+      "error": "Email already registered"
+    },
+    "loginSuccess": {
+      "request": {
+        "email": "api.validation.1775560187058@qms-test.com"
+      },
+      "response": {
+        "token": "***",
+        "user": {
+          "id": "cmnoiowm70007s7wwwmi4i5wl",
+          "email": "api.validation.1775560187058@qms-test.com",
+          "firstName": "Validation",
+          "lastName": "Test",
+          "role": "USER"
+        }
+      },
+      "statusCode": 200,
+      "responseTime": 76
+    },
+    "usersQuery": {
+      "request": {
+        "pagination": {
+          "page": 1,
+          "limit": 10
+        }
+      },
+      "response": {
+        "totalUsers": 11,
+        "sampleUser": {
+          "id": "cmnn5rviu0000s7mga1gesv0i",
+          "email": "admin@qms.com",
+          "firstName": "Admin",
+          "lastName": "Salemi",
+          "role": "ADMIN"
+        }
+      },
+      "responseTime": 15
+    }
+  }
+}

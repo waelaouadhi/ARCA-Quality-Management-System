@@ -230,6 +230,10 @@ model SLARule {
   // Notification config
   notifyChannels    NotificationChannel[] @default([EMAIL, IN_APP])
   
+  // Relations
+  ncEscalations     NonConformanceEscalation[]
+  caEscalations     CorrectiveActionEscalation[]
+  
   // Status
   isActive          Boolean  @default(true)
   

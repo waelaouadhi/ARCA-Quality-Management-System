@@ -241,36 +241,33 @@ export async function setupEscalationWorker(
   return worker;
 }
 
-/**
- * BullMQ Queue Example (for production environments)
- * 
- * Install: npm install bullmq
- * 
- * Usage:
- * import { Queue, Worker as BullWorker } from 'bullmq';
- * 
- * const escalationQueue = new Queue('escalation', {
- *   connection: {
- *     host: 'localhost',
- *     port: 6379,
- *   },
- * });
- * 
- * // Add job to queue
- * await escalationQueue.add('process', {}, {
- *   repeat: {
- *     pattern: '*/5 * * * *',  // Every 5 minutes
- *   },
- * });
- * 
- * // Process jobs
- * const bullWorker = new BullWorker('escalation', async (job) => {
- *   const escalationWorker = new EscalationWorker(prisma);
- *   return await escalationWorker.runOnce();
- * }, {
- *   connection: {
- *     host: 'localhost',
- *     port: 6379,
- *   },
- * });
- */
+
+// BullMQ Queue Example (for production environments)
+// 
+// Install: npm install bullmq
+// 
+// Usage:
+// import { Queue, Worker as BullWorker } from 'bullmq';
+// 
+// const escalationQueue = new Queue('escalation', {
+//   connection: {
+//     host: 'localhost',
+//     port: 6379,
+//   },
+// });
+// 
+// await escalationQueue.add('process', {}, {
+//   repeat: {
+//     pattern: '*/5 * * * *',  // Every 5 minutes
+//   },
+// });
+// 
+// const bullWorker = new BullWorker('escalation', async (job) => {
+//   const escalationWorker = new EscalationWorker(prisma);
+//   return await escalationWorker.runOnce();
+// }, {
+//   connection: {
+//     host: 'localhost',
+//     port: 6379,
+//   },
+// });
