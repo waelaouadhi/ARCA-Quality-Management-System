@@ -1,0 +1,53 @@
+<svg width="98" height="98" viewBox="0 0 98 98" fill="none" xmlns="http://www.w3.org/2000/svg">
+<circle opacity="0.11" cx="17" cy="1" r="1" fill="#1226ED"/>
+<ellipse opacity="0.11" cx="17" cy="17" rx="1" ry="0.999999" fill="#1226ED"/>
+<circle opacity="0.11" cx="17" cy="33" r="1" fill="#1226ED"/>
+<ellipse opacity="0.11" cx="17" cy="49" rx="1" ry="0.999998" fill="#1226ED"/>
+<circle opacity="0.11" cx="17" cy="65" r="1" fill="#1226ED"/>
+<circle opacity="0.11" cx="17" cy="81" r="1" fill="#1226ED"/>
+<ellipse cx="17" cy="97" rx="1" ry="0.999996" fill="#E5E7FD"/>
+<ellipse opacity="0.11" cx="33" cy="1" rx="1" ry="1" fill="#1226ED"/>
+<ellipse opacity="0.11" cx="33" cy="17" rx="1" ry="0.999999" fill="#1226ED"/>
+<ellipse opacity="0.11" cx="33" cy="33" rx="1" ry="1" fill="#1226ED"/>
+<ellipse opacity="0.11" cx="33" cy="49" rx="1" ry="0.999998" fill="#1226ED"/>
+<ellipse opacity="0.11" cx="33" cy="65" rx="1" ry="1" fill="#1226ED"/>
+<ellipse opacity="0.11" cx="33" cy="81" rx="1" ry="1" fill="#1226ED"/>
+<ellipse cx="33" cy="97" rx="1" ry="0.999996" fill="#E5E7FD"/>
+<ellipse opacity="0.11" cx="49" cy="1" rx="0.999998" ry="1" fill="#1226ED"/>
+<ellipse opacity="0.11" cx="65" cy="1" rx="0.999996" ry="1" fill="#1226ED"/>
+<circle opacity="0.11" cx="81" cy="1" r="1" fill="#1226ED"/>
+<circle opacity="0.11" cx="97" cy="1" r="1" fill="#1226ED"/>
+<ellipse opacity="0.11" cx="49" cy="17" rx="0.999998" ry="0.999999" fill="#1226ED"/>
+<ellipse opacity="0.11" cx="65" cy="17" rx="0.999996" ry="0.999999" fill="#1226ED"/>
+<ellipse opacity="0.11" cx="81" cy="17" rx="1" ry="0.999999" fill="#1226ED"/>
+<ellipse opacity="0.11" cx="97" cy="17" rx="1" ry="0.999999" fill="#1226ED"/>
+<ellipse opacity="0.11" cx="49" cy="33" rx="0.999998" ry="1" fill="#1226ED"/>
+<ellipse opacity="0.11" cx="65" cy="33" rx="0.999996" ry="1" fill="#1226ED"/>
+<circle opacity="0.11" cx="81" cy="33" r="1" fill="#1226ED"/>
+<circle opacity="0.11" cx="97" cy="33" r="1" fill="#1226ED"/>
+<circle opacity="0.11" cx="49" cy="49" r="0.999998" fill="#1226ED"/>
+<ellipse opacity="0.11" cx="65" cy="49" rx="0.999996" ry="0.999998" fill="#1226ED"/>
+<ellipse opacity="0.11" cx="81" cy="49" rx="1" ry="0.999998" fill="#1226ED"/>
+<ellipse opacity="0.11" cx="97" cy="49" rx="1" ry="0.999998" fill="#1226ED"/>
+<ellipse opacity="0.11" cx="49" cy="65" rx="0.999998" ry="1" fill="#1226ED"/>
+<ellipse opacity="0.11" cx="65" cy="65" rx="0.999996" ry="1" fill="#1226ED"/>
+<circle opacity="0.11" cx="81" cy="65" r="1" fill="#1226ED"/>
+<circle opacity="0.11" cx="97" cy="65" r="1" fill="#1226ED"/>
+<ellipse opacity="0.11" cx="49" cy="81" rx="0.999998" ry="1" fill="#1226ED"/>
+<ellipse opacity="0.11" cx="65" cy="81" rx="0.999996" ry="1" fill="#1226ED"/>
+<circle opacity="0.11" cx="81" cy="81" r="1" fill="#1226ED"/>
+<circle opacity="0.11" cx="97" cy="81" r="1" fill="#1226ED"/>
+<ellipse cx="49" cy="97" rx="0.999998" ry="0.999996" fill="#E5E7FD"/>
+<circle cx="65" cy="97" r="0.999996" fill="#E5E7FD"/>
+<ellipse cx="81" cy="97" rx="1" ry="0.999996" fill="#E5E7FD"/>
+<ellipse cx="97" cy="97" rx="1" ry="0.999996" fill="#E5E7FD"/>
+<circle cx="1" cy="1" r="1" fill="#0CDC73"/>
+<ellipse cx="1" cy="17" rx="1" ry="0.999999" fill="#0CDC73"/>
+<circle cx="1" cy="33" r="1" fill="#0CDC73"/>
+<ellipse cx="1" cy="49" rx="1" ry="0.999998" fill="#0CDC73"/>
+<circle cx="1" cy="65" r="1" fill="#0CDC73"/>
+<circle cx="1" cy="81" r="1" fill="#0CDC73"/>
+<ellipse cx="1" cy="97" rx="1" ry="0.999996" fill="#0CDC73"/>
+<path d="M43.6833 73.6267L42.4834 74.8996C43.1674 75.5604 44.2466 75.5483 44.9142 74.8725L43.6833 73.6267ZM79.1404 37.7283L59.7453 42.9777L73.958 57.3624L79.1404 37.7283ZM21.7523 76.1375C21.0831 76.834 21.0991 77.9487 21.7882 78.6272C22.4772 79.3057 23.5784 79.291 24.2477 78.5945L21.7523 76.1375ZM34.82 65.0643L36.0198 63.7914C35.3291 63.1241 34.2371 63.1439 33.5723 63.8358L34.82 65.0643ZM44.9142 74.8725L69.3114 50.1716L66.8496 47.6801L42.4524 72.381L44.9142 74.8725ZM24.2477 78.5945L36.0676 66.2928L33.5723 63.8358L21.7523 76.1375L24.2477 78.5945ZM33.6201 66.3371L42.4834 74.8996L44.8832 72.3539L36.0198 63.7914L33.6201 66.3371Z" fill="#0CDC73"/>
+<path d="M27.0473 55L29.8821 48.6483L36.0946 45.75L29.8821 42.8517L27.0473 36.5L24.2125 42.8517L18 45.75L24.2125 48.6483L27.0473 55ZM46.4448 39.5833L49.732 32.1525L57 28.7917L49.732 25.4308L46.4448 18L43.1576 25.4308L35.8896 28.7917L43.1576 32.1525L46.4448 39.5833Z" fill="#1226ED"/>
+</svg>

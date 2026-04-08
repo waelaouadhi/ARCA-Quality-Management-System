@@ -1,0 +1,54 @@
+<svg width="98" height="98" viewBox="0 0 98 98" fill="none" xmlns="http://www.w3.org/2000/svg">
+<circle opacity="0.11" cx="17" cy="1" r="1" fill="#1226ED"/>
+<ellipse opacity="0.11" cx="17" cy="17" rx="1" ry="0.999999" fill="#1226ED"/>
+<circle opacity="0.11" cx="17" cy="33" r="1" fill="#1226ED"/>
+<ellipse opacity="0.11" cx="17" cy="49" rx="1" ry="0.999998" fill="#1226ED"/>
+<circle opacity="0.11" cx="17" cy="65" r="1" fill="#1226ED"/>
+<circle opacity="0.11" cx="17" cy="81" r="1" fill="#1226ED"/>
+<ellipse cx="17" cy="97" rx="1" ry="0.999996" fill="#E5E7FD"/>
+<ellipse opacity="0.11" cx="33" cy="1" rx="1" ry="1" fill="#1226ED"/>
+<ellipse opacity="0.11" cx="33" cy="17" rx="1" ry="0.999999" fill="#1226ED"/>
+<ellipse opacity="0.11" cx="33" cy="33" rx="1" ry="1" fill="#1226ED"/>
+<ellipse opacity="0.11" cx="33" cy="49" rx="1" ry="0.999998" fill="#1226ED"/>
+<ellipse opacity="0.11" cx="33" cy="65" rx="1" ry="1" fill="#1226ED"/>
+<ellipse opacity="0.11" cx="33" cy="81" rx="1" ry="1" fill="#1226ED"/>
+<ellipse cx="33" cy="97" rx="1" ry="0.999996" fill="#E5E7FD"/>
+<ellipse opacity="0.11" cx="49" cy="1" rx="0.999998" ry="1" fill="#1226ED"/>
+<ellipse opacity="0.11" cx="65" cy="1" rx="0.999996" ry="1" fill="#1226ED"/>
+<circle opacity="0.11" cx="81" cy="1" r="1" fill="#1226ED"/>
+<circle opacity="0.11" cx="97" cy="1" r="1" fill="#1226ED"/>
+<ellipse opacity="0.11" cx="49" cy="17" rx="0.999998" ry="0.999999" fill="#1226ED"/>
+<ellipse opacity="0.11" cx="65" cy="17" rx="0.999996" ry="0.999999" fill="#1226ED"/>
+<ellipse opacity="0.11" cx="81" cy="17" rx="1" ry="0.999999" fill="#1226ED"/>
+<ellipse opacity="0.11" cx="97" cy="17" rx="1" ry="0.999999" fill="#1226ED"/>
+<ellipse opacity="0.11" cx="49" cy="33" rx="0.999998" ry="1" fill="#1226ED"/>
+<ellipse opacity="0.11" cx="65" cy="33" rx="0.999996" ry="1" fill="#1226ED"/>
+<circle opacity="0.11" cx="81" cy="33" r="1" fill="#1226ED"/>
+<circle opacity="0.11" cx="97" cy="33" r="1" fill="#1226ED"/>
+<circle opacity="0.11" cx="49" cy="49" r="0.999998" fill="#1226ED"/>
+<ellipse opacity="0.11" cx="65" cy="49" rx="0.999996" ry="0.999998" fill="#1226ED"/>
+<ellipse opacity="0.11" cx="81" cy="49" rx="1" ry="0.999998" fill="#1226ED"/>
+<ellipse opacity="0.11" cx="97" cy="49" rx="1" ry="0.999998" fill="#1226ED"/>
+<ellipse opacity="0.11" cx="49" cy="65" rx="0.999998" ry="1" fill="#1226ED"/>
+<ellipse opacity="0.11" cx="65" cy="65" rx="0.999996" ry="1" fill="#1226ED"/>
+<circle opacity="0.11" cx="81" cy="65" r="1" fill="#1226ED"/>
+<circle opacity="0.11" cx="97" cy="65" r="1" fill="#1226ED"/>
+<ellipse opacity="0.11" cx="49" cy="81" rx="0.999998" ry="1" fill="#1226ED"/>
+<ellipse opacity="0.11" cx="65" cy="81" rx="0.999996" ry="1" fill="#1226ED"/>
+<circle opacity="0.11" cx="81" cy="81" r="1" fill="#1226ED"/>
+<circle opacity="0.11" cx="97" cy="81" r="1" fill="#1226ED"/>
+<ellipse cx="49" cy="97" rx="0.999998" ry="0.999996" fill="#E5E7FD"/>
+<circle cx="65" cy="97" r="0.999996" fill="#E5E7FD"/>
+<ellipse cx="81" cy="97" rx="1" ry="0.999996" fill="#E5E7FD"/>
+<ellipse cx="97" cy="97" rx="1" ry="0.999996" fill="#E5E7FD"/>
+<circle cx="1" cy="1" r="1" fill="#0CDC73"/>
+<ellipse cx="1" cy="17" rx="1" ry="0.999999" fill="#0CDC73"/>
+<circle cx="1" cy="33" r="1" fill="#0CDC73"/>
+<ellipse cx="1" cy="49" rx="1" ry="0.999998" fill="#0CDC73"/>
+<circle cx="1" cy="65" r="1" fill="#0CDC73"/>
+<circle cx="1" cy="81" r="1" fill="#0CDC73"/>
+<ellipse cx="1" cy="97" rx="1" ry="0.999996" fill="#0CDC73"/>
+<path fill-rule="evenodd" clip-rule="evenodd" d="M32.2566 59.3022C38.0182 59.3022 42.6889 54.6314 42.6889 48.8698C42.6889 43.1082 38.0182 38.4375 32.2566 38.4375C26.4949 38.4375 21.8242 43.1082 21.8242 48.8698C21.8242 54.6314 26.4949 59.3022 32.2566 59.3022ZM28.6053 64.5184H35.9079C43.9741 64.5184 50.5131 71.0574 50.5131 79.1236C50.5131 79.6998 50.0461 80.1669 49.4699 80.1669H15.0432C14.4671 80.1669 14 79.6998 14 79.1236C14 71.0574 20.539 64.5184 28.6053 64.5184Z" fill="#1226ED"/>
+<path fill-rule="evenodd" clip-rule="evenodd" d="M59 53.2857C61.8403 53.2857 64.1429 50.9832 64.1429 48.1429C64.1429 45.3025 61.8403 43 59 43C56.1597 43 53.8571 45.3025 53.8571 48.1429C53.8571 50.9832 56.1597 53.2857 59 53.2857ZM57.2 55.8571H60.8C64.7765 55.8571 68 59.0807 68 63.0571C68 63.3412 67.7698 63.5714 67.4857 63.5714H50.5143C50.2303 63.5714 50 63.3412 50 63.0571C50 59.0807 53.2235 55.8571 57.2 55.8571Z" fill="#1226ED"/>
+<path d="M70.5918 19.0018V39.009M80.5954 29.0054L60.5882 29.0054" stroke="#0CDC73" stroke-width="3" stroke-linecap="round"/>
+</svg>
