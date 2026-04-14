@@ -6,6 +6,7 @@ import { nonConformanceTypeDefs, nonConformanceResolvers } from '@/modules/nonCo
 import { correctiveActionTypeDefs, correctiveActionResolvers } from '@/modules/correctiveAction';
 import { dashboardTypeDefs, dashboardResolvers } from '@/modules/dashboard';
 import { permissionTypeDefs, permissionResolvers } from '@/modules/permission';
+import { workflowTypeDefs, workflowResolvers } from '@/modules/workflow';
 
 export const typeDefs = [
   baseTypeDefs,
@@ -16,6 +17,7 @@ export const typeDefs = [
   correctiveActionTypeDefs,
   dashboardTypeDefs,
   permissionTypeDefs,
+  workflowTypeDefs,
 ];
 
 export const resolvers = {
@@ -28,6 +30,7 @@ export const resolvers = {
     ...correctiveActionResolvers.Query,
     ...dashboardResolvers.Query,
     ...permissionResolvers.Query,
+    ...workflowResolvers.Query,
   },
   Mutation: {
     ...baseResolvers.Mutation,
@@ -38,5 +41,6 @@ export const resolvers = {
     ...correctiveActionResolvers.Mutation,
     ...dashboardResolvers.Mutation,
     ...permissionResolvers.Mutation,
+    ...workflowResolvers.Mutation,
   },
 };
