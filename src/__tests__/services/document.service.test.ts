@@ -57,6 +57,6 @@ describe('DocumentService', () => {
     const service = new DocumentService(repository as never);
     repository.getDocumentById.mockResolvedValue(null);
 
-    await expect(service.getDocumentById('550e8400-e29b-41d4-a716-446655440010', managerUser)).rejects.toMatchObject({ statusCode: 404 });
+    await expect(service.getDocumentById('c0ldwxvzrn000qzrmn831aljf', managerUser)).rejects.toMatchObject({ statusCode: 404 });
   });
 });

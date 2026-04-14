@@ -1,0 +1,321 @@
+/**
+ * Secure Data Filtering Engine
+ * Database-level authorization filters using Prisma WhereInput
+ */
+
+import { Prisma } from '@prisma/client';
+import { JWTPayload } from './jwt';
+import {
+  RoleBasedFilter,
+  MultiScopeUser,
+  SecureFilterConstraints,
+  EntityFilterDefinition,
+  AccessPattern,
+} from './secureFiltering.types';
+
+/**
+ * Core Secure Filtering Engine
+ * Converts authorization context into Prisma WHERE clauses
+ */
+export class SecureFilteringEngine {
+  /**
+   * Generate secure filter for reading Non-Conformances
+   * @param user - Authenticated user
+   * @param scopes - Optional scope IDs user has access to
+   * @returns Prisma WhereInput for filtering
+   */
+  static getNonConformanceFilter(
+    user: JWTPayload,
+    scopes?: string[]
+  ): Prisma.NonConformanceWhereInput {
+    if (user.role === 'ADMIN') {
+      // ADMIN sees everything except deleted
+      return {
+        deletedAt: null,
+      };
+    }
+
+    if (user.role === 'MANAGER') {
+      // MANAGER sees:
+      // 1. Items they reported
+      // 2. Items in their scopes (department)
+      // 3. Items assigned to their team members
+      return {
+        AND: [
+          { deletedAt: null },
+          {
+            OR: [
+              { reportedById: user.userId }, // Their own reports
+              scopes && scopes.length > 0
+                ? { departmentId: { in: scopes } } // Their department
+                : undefined,
+            ].filter(Boolean) as any[],
+          },
+        ],
+      };
+    }
+
+    // USER sees only their own records
+    return {
+      AND: [
+        { deletedAt: null },
+        {
+          OR: [
+            { reportedById: user.userId }, // Their reports
+            { assignedToId: user.userId }, // Assigned to them
+          ],
+        },
+      ],
+    };
+  }
+
+  /**
+   * Generate secure filter for reading Corrective Actions
+   */
+  static getCorrectiveActionFilter(
+    user: JWTPayload,
+    scopes?: string[]
+  ): Prisma.CorrectiveActionWhereInput {
+    if (user.role === 'ADMIN') {
+      return { deletedAt: null };
+    }
+
+    if (user.role === 'MANAGER') {
+      return {
+        AND: [
+          { deletedAt: null },
+          {
+            OR: [
+              { assignedToId: user.userId }, // Assigned to them
+              // Access through NC in their scope
+              {
+                nonConformance: {
+                  departmentId: scopes && scopes.length > 0
+                    ? { in: scopes }
+                    : undefined,
+                },
+              },
+            ].filter(Boolean) as any[],
+          },
+        ],
+      };
+    }
+
+    // USER sees only their own or related records
+    return {
+      AND: [
+        { deletedAt: null },
+        { assignedToId: user.userId }, // Only assigned to them
+      ],
+    };
+  }
+
+  /**
+   * Generate secure filter for reading Documents
+   */
+  static getDocumentFilter(
+    user: JWTPayload,
+    scopes?: string[]
+  ): Prisma.DocumentWhereInput {
+    if (user.role === 'ADMIN') {
+      return { deletedAt: null };
+    }
+
+    if (user.role === 'MANAGER') {
+      // MANAGER sees:
+      // 1. APPROVED/PUBLISHED documents (public)
+      // 2. DRAFT/REVIEW docs in their scope
+      // 3. Docs they created
+      return {
+        AND: [
+          { deletedAt: null },
+          {
+            OR: [
+              { createdById: user.userId }, // Their own docs
+              { status: 'APPROVED' }, // Published docs
+              {
+                AND: [
+                  { status: { in: ['DRAFT', 'REVIEW'] } },
+                  scopes && scopes.length > 0
+                    ? { departmentId: { in: scopes } }
+                    : undefined,
+                ],
+              },
+            ].filter(Boolean) as any[],
+          },
+        ],
+      };
+    }
+
+    // USER sees only APPROVED documents
+    return {
+      AND: [
+        { deletedAt: null },
+        { status: 'APPROVED' },
+      ],
+    };
+  }
+
+  /**
+   * Generate secure filter for Escalation History
+   */
+  static getEscalationHistoryFilter(
+    user: JWTPayload,
+    scopes?: string[]
+  ): Prisma.EscalationHistoryWhereInput {
+    if (user.role === 'ADMIN') {
+      return {}; // ADMIN sees all
+    }
+
+    if (user.role === 'MANAGER') {
+      // MANAGER sees escalations for their team
+      return {
+        OR: [
+          {
+            ncEscalation: {
+              nonConformance: {
+                departmentId: scopes && scopes.length > 0
+                  ? { in: scopes }
+                  : undefined,
+              },
+            },
+          },
+          {
+            caEscalation: {
+              correctiveAction: {
+                nonConformance: {
+                  departmentId: scopes && scopes.length > 0
+                    ? { in: scopes }
+                    : undefined,
+                },
+              },
+            },
+          },
+        ],
+      };
+    }
+
+    // USER sees escalations for their own items
+    return {
+      OR: [
+        {
+          ncEscalation: {
+            nonConformance: {
+              reportedById: user.userId,
+            },
+          },
+        },
+        {
+          caEscalation: {
+            correctiveAction: {
+              assignedToId: user.userId,
+            },
+          },
+        },
+      ],
+    };
+  }
+
+  /**
+   * Combine multiple filters with AND logic
+   */
+  static combineFilters(
+    baseFilter: any,
+    additionalFilters: any[]
+  ): any {
+    return {
+      AND: [baseFilter, ...additionalFilters].filter(Boolean),
+    };
+  }
+
+  /**
+   * Add time-based filter
+   */
+  static addDateRangeFilter(
+    filter: any,
+    afterDate?: Date,
+    beforeDate?: Date
+  ): any {
+    if (!afterDate && !beforeDate) {
+      return filter;
+    }
+
+    const dateFilter: any = {};
+    if (afterDate) dateFilter.gte = afterDate;
+    if (beforeDate) dateFilter.lte = beforeDate;
+
+    return {
+      AND: [
+        filter,
+        { createdAt: dateFilter },
+      ],
+    };
+  }
+
+  /**
+   * Add status filter
+   */
+  static addStatusFilter(
+    filter: any,
+    allowedStatuses?: string[]
+  ): any {
+    if (!allowedStatuses || allowedStatuses.length === 0) {
+      return filter;
+    }
+
+    return {
+      AND: [
+        filter,
+        { status: { in: allowedStatuses } },
+      ],
+    };
+  }
+
+  /**
+   * Validate filter for SQL injection risks
+   * (Prisma handles parameterization, but good to validate)
+   */
+  static validateFilterSafety(filter: any): boolean {
+    // Prisma's WhereInput is type-safe, but we can add extra validation
+    const filterStr = JSON.stringify(filter);
+    
+    // Check for common injection patterns
+    const suspiciousPatterns = [
+      /(\$where|\$function|eval|Function)/i,
+      /--\s*$/m, // SQL comments
+      /;\s*DROP/i,
+      /;\s*DELETE/i,
+    ];
+
+    return !suspiciousPatterns.some(pattern => pattern.test(filterStr));
+  }
+}
+
+/**
+ * Build user context with multi-scope support
+ */
+export function buildMultiScopeContext(
+  user: JWTPayload,
+  userScopes?: string[]
+): MultiScopeUser {
+  return {
+    userId: user.userId,
+    role: user.role as 'ADMIN' | 'MANAGER' | 'USER',
+    scopes: userScopes || [],
+    createdDepartmentId: (user as any).departmentId,
+  };
+}
+
+/**
+ * Export all filter builders for easy access
+ */
+export const SecureFilters = {
+  nonConformance: SecureFilteringEngine.getNonConformanceFilter,
+  correctiveAction: SecureFilteringEngine.getCorrectiveActionFilter,
+  document: SecureFilteringEngine.getDocumentFilter,
+  escalationHistory: SecureFilteringEngine.getEscalationHistoryFilter,
+  combine: SecureFilteringEngine.combineFilters,
+  addDateRange: SecureFilteringEngine.addDateRangeFilter,
+  addStatus: SecureFilteringEngine.addStatusFilter,
+  validate: SecureFilteringEngine.validateFilterSafety,
+};

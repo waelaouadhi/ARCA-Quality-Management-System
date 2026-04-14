@@ -1,4 +1,6 @@
 import prisma from '@/config/database';
+import { Prisma } from '@prisma/client';
+import { ConflictError, NotFoundError } from '@/shared/errors';
 import { PaginationInput, paginate } from '@/shared/utils/pagination';
 
 export class UserRepository {
@@ -18,8 +20,24 @@ export class UserRepository {
   }
 
   async deleteUser(id: string) {
-    await prisma.user.delete({
-      where: { id },
-    });
+    try {
+      await prisma.user.delete({
+        where: { id },
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2025') {
+          throw new NotFoundError('User not found');
+        }
+
+        if (error.code === 'P2003') {
+          throw new ConflictError(
+            'Cannot delete this user because it is linked to existing records. Reassign ownership before deleting.',
+          );
+        }
+      }
+
+      throw error;
+    }
   }
 }

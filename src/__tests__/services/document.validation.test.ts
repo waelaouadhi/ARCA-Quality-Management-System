@@ -44,12 +44,12 @@ describe('DocumentService - Validation Tests', () => {
   });
 
   describe('getDocumentById validation', () => {
-    it('rejects invalid UUID', async () => {
+    it('rejects invalid document ID format', async () => {
       const repository = createRepository();
       const service = new DocumentService(repository as never);
 
       await expect(
-        service.getDocumentById('not-uuid', managerUser)
+        service.getDocumentById('not-cuid', managerUser)
       ).rejects.toMatchObject({ statusCode: 400 });
     });
   });
@@ -69,13 +69,13 @@ describe('DocumentService - Validation Tests', () => {
       const service = new DocumentService(repository as never);
 
       await expect(
-        service.updateDocument('550e8400-e29b-41d4-a716-446655440001', {}, managerUser)
+        service.updateDocument('c0ldwxvzrn000qzrmn831aljf', {}, managerUser)
       ).rejects.toMatchObject({ statusCode: 400 });
     });
   });
 
   describe('archiveDocument validation', () => {
-    it('rejects invalid UUID', async () => {
+    it('rejects invalid document ID format', async () => {
       const repository = createRepository();
       const service = new DocumentService(repository as never);
 

@@ -1,3 +1,18 @@
+import * as moduleAlias from 'module-alias';
+import { resolve } from 'path';
+
+// Register path aliases BEFORE any other imports (production only)
+if (process.env.NODE_ENV !== 'development') {
+  const baseDir = resolve(__dirname);
+  moduleAlias.addAliases({
+    '@': baseDir,
+    '@config': resolve(baseDir, 'config'),
+    '@modules': resolve(baseDir, 'modules'),
+    '@shared': resolve(baseDir, 'shared'),
+    '@middlewares': resolve(baseDir, 'middlewares'),
+  });
+}
+
 import express from 'express';
 import { ApolloServer } from '@apollo/server';
 import { expressMiddleware, ExpressContextFunctionArgument } from '@apollo/server/express4';

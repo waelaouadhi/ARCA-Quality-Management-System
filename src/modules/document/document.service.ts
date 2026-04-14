@@ -12,6 +12,7 @@ import {
 interface CreateDocumentInput {
   title: string;
   content?: string;
+  status?: 'DRAFT' | 'REVIEW' | 'APPROVED' | 'ARCHIVED';
 }
 
 interface UpdateDocumentInput {

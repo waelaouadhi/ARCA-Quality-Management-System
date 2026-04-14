@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { DocumentIdSchema as CentralDocumentIdSchema } from '@/shared/utils/idValidation';
 
 /**
  * Document validation schemas using Zod
@@ -20,8 +21,8 @@ export const CreateDocumentInputSchema = z.object({
     errorMap: () => ({ message: 'Type must be one of: POLICY, PROCEDURE, FORM, RECORD' }),
   }).optional(),
   
-  status: z.enum(['DRAFT', 'ACTIVE', 'ARCHIVED'], {
-    errorMap: () => ({ message: 'Status must be one of: DRAFT, ACTIVE, ARCHIVED' }),
+  status: z.enum(['DRAFT', 'REVIEW', 'APPROVED', 'ARCHIVED'], {
+    errorMap: () => ({ message: 'Status must be one of: DRAFT, REVIEW, APPROVED, ARCHIVED' }),
   }).optional(),
 });
 
@@ -42,15 +43,15 @@ export const UpdateDocumentInputSchema = z.object({
     errorMap: () => ({ message: 'Type must be one of: POLICY, PROCEDURE, FORM, RECORD' }),
   }).optional(),
   
-  status: z.enum(['DRAFT', 'ACTIVE', 'ARCHIVED'], {
-    errorMap: () => ({ message: 'Status must be one of: DRAFT, ACTIVE, ARCHIVED' }),
+  status: z.enum(['DRAFT', 'REVIEW', 'APPROVED', 'ARCHIVED'], {
+    errorMap: () => ({ message: 'Status must be one of: DRAFT, REVIEW, APPROVED, ARCHIVED' }),
   }).optional(),
 }).refine(
   (data) => Object.keys(data).length > 0,
   { message: 'At least one field must be provided for update' }
 );
 
-export const DocumentIdSchema = z.string().uuid('Invalid document ID format');
+export const DocumentIdSchema = CentralDocumentIdSchema;
 
 export type CreateDocumentInput = z.infer<typeof CreateDocumentInputSchema>;
 export type UpdateDocumentInput = z.infer<typeof UpdateDocumentInputSchema>;

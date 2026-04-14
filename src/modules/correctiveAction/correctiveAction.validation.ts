@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { CuidSchema } from '../../shared/utils/idValidation';
 
 /**
  * CorrectiveAction validation schemas using Zod
@@ -13,11 +14,11 @@ export const CreateCorrectiveActionInputSchema = z.object({
   
   nonConformanceId: z
     .string()
-    .uuid('Invalid non-conformance ID format'),
+    .pipe(CuidSchema),
   
   assignedToId: z
     .string()
-    .uuid('Invalid assignee user ID format')
+    .pipe(CuidSchema)
     .optional(),
   
   dueDate: z
@@ -28,6 +29,18 @@ export const CreateCorrectiveActionInputSchema = z.object({
   
   status: z.enum(['PENDING', 'IN_PROGRESS', 'DONE'], {
     errorMap: () => ({ message: 'Status must be one of: PENDING, IN_PROGRESS, DONE' }),
+  }).optional(),
+
+  // Phase 1: 2-stage workflow fields
+  rootCauseAnalysis: z
+    .string()
+    .min(10, 'Root cause analysis must be at least 10 characters')
+    .max(5000, 'Root cause analysis must not exceed 5,000 characters')
+    .trim()
+    .optional(),
+
+  requestStatus: z.enum(['PENDING', 'ACCEPTED', 'REJECTED', 'PLANNED'], {
+    errorMap: () => ({ message: 'Request status must be one of: PENDING, ACCEPTED, REJECTED, PLANNED' }),
   }).optional(),
 });
 
@@ -41,7 +54,7 @@ export const UpdateCorrectiveActionInputSchema = z.object({
   
   assignedToId: z
     .string()
-    .uuid('Invalid assignee user ID format')
+    .pipe(CuidSchema)
     .optional(),
   
   dueDate: z
@@ -54,12 +67,32 @@ export const UpdateCorrectiveActionInputSchema = z.object({
   status: z.enum(['PENDING', 'IN_PROGRESS', 'DONE'], {
     errorMap: () => ({ message: 'Status must be one of: PENDING, IN_PROGRESS, DONE' }),
   }).optional(),
+
+  // Phase 1: 2-stage workflow fields
+  rootCauseAnalysis: z
+    .string()
+    .min(10, 'Root cause analysis must be at least 10 characters')
+    .max(5000, 'Root cause analysis must not exceed 5,000 characters')
+    .trim()
+    .optional()
+    .nullable(),
+
+  requestStatus: z.enum(['PENDING', 'ACCEPTED', 'REJECTED', 'PLANNED'], {
+    errorMap: () => ({ message: 'Request status must be one of: PENDING, ACCEPTED, REJECTED, PLANNED' }),
+  }).optional(),
+
+  verificationNotes: z
+    .string()
+    .max(2000, 'Verification notes must not exceed 2,000 characters')
+    .trim()
+    .optional()
+    .nullable(),
 }).refine(
   (data) => Object.keys(data).length > 0,
   { message: 'At least one field must be provided for update' }
 );
 
-export const CorrectiveActionIdSchema = z.string().uuid('Invalid corrective action ID format');
+export const CorrectiveActionIdSchema = CuidSchema.describe('Corrective Action ID');
 
 export type CreateCorrectiveActionInput = z.infer<typeof CreateCorrectiveActionInputSchema>;
 export type UpdateCorrectiveActionInput = z.infer<typeof UpdateCorrectiveActionInputSchema>;

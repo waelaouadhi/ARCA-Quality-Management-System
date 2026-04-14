@@ -6,6 +6,7 @@ type DocStatus = 'DRAFT' | 'REVIEW' | 'APPROVED' | 'ARCHIVED';
 interface CreateDocumentInput {
   title: string;
   content?: string;
+  status?: DocStatus;
 }
 
 interface UpdateDocumentInput {
@@ -21,6 +22,7 @@ export class DocumentRepository {
       data: {
         title: input.title,
         content: input.content,
+        status: input.status,
         createdById,
       },
       include: {

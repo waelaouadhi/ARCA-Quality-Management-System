@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { UserIdSchema as CentralUserIdSchema } from '@/shared/utils/idValidation';
 
 /**
  * User validation schemas using Zod
@@ -35,6 +36,10 @@ export const UpdateUserInputSchema = z.object({
   { message: 'At least one field must be provided for update' }
 );
 
-export const UserIdSchema = z.string().uuid('Invalid user ID format');
+/**
+ * User ID schema - imported from centralized ID validation
+ * Ensures consistent CUID format validation across all modules
+ */
+export const UserIdSchema = CentralUserIdSchema;
 
 export type UpdateUserInput = z.infer<typeof UpdateUserInputSchema>;

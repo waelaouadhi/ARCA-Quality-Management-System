@@ -1,6 +1,7 @@
-import dotenv from 'dotenv';
+import { config as envConfig } from './env';
 
-dotenv.config();
+// Validate environment variables early (fail-fast on startup)
+const env = envConfig;
 
 interface Config {
   app: {
@@ -25,22 +26,22 @@ interface Config {
 
 const config: Config = {
   app: {
-    name: process.env.APP_NAME || 'QMS-Backend',
-    env: process.env.NODE_ENV || 'development',
-    port: parseInt(process.env.PORT || '4000', 10),
+    name: env.APP_NAME,
+    env: env.NODE_ENV,
+    port: env.PORT,
   },
   database: {
-    url: process.env.DATABASE_URL || '',
+    url: env.DATABASE_URL,
   },
   jwt: {
-    secret: process.env.JWT_SECRET || 'change-this-secret',
-    expiresIn: process.env.JWT_EXPIRES_IN || '7d',
+    secret: env.JWT_SECRET,
+    expiresIn: env.JWT_EXPIRES_IN,
   },
   cors: {
-    origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+    origin: env.CORS_ORIGIN,
   },
   logging: {
-    level: process.env.LOG_LEVEL || 'info',
+    level: env.LOG_LEVEL,
   },
 };
 

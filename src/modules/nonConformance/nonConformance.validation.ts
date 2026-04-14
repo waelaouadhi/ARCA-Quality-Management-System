@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { CuidSchema } from '../../shared/utils/idValidation';
 
 /**
  * NonConformance validation schemas using Zod
@@ -63,7 +64,7 @@ export const UpdateNonConformanceInputSchema = z.object({
   { message: 'At least one field must be provided for update' }
 );
 
-export const NonConformanceIdSchema = z.string().uuid('Invalid non-conformance ID format');
+export const NonConformanceIdSchema = CuidSchema.describe('Non-Conformance ID');
 
 export type CreateNonConformanceInput = z.infer<typeof CreateNonConformanceInputSchema>;
 export type UpdateNonConformanceInput = z.infer<typeof UpdateNonConformanceInputSchema>;

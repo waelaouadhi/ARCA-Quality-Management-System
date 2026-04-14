@@ -26,6 +26,7 @@ export const documentTypeDefs = `#graphql
   input CreateDocumentInput {
     title: String!
     content: String
+    status: DocStatus
   }
 
   input UpdateDocumentInput {
