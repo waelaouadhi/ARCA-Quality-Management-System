@@ -212,6 +212,10 @@ model CorrectiveAction {
   supplierIssueId String?
   supplierIssue   SupplierIssue? @relation("IssueToCAPAPhase4", fields: [supplierIssueId], references: [id])
 
+  // Phase 4 Step 2: Complaint linking
+  complaintId String?
+  complaint   Complaint? @relation("ComplaintToCAPAPhase4", fields: [complaintId], references: [id])
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -972,6 +976,10 @@ model Risk {
   linkedSuppliers Supplier[] @relation("SupplierRisks")
   supplierRiskScore Float?  // Risk score specific to supplier source
 
+  // Phase 4 Step 2: Complaint linking
+  linkedComplaints Complaint[] @relation("ComplaintRisks")
+  complaintRiskScore Float?  // Risk score from complaints
+
   // Audit
   createdById String
   createdBy   User   @relation("RiskCreatedBy", fields: [createdById], references: [id])
@@ -1285,7 +1293,106 @@ model SupplierIssue {
   @@index([severity])
 }
 
-// Update existing models
-// Note: Risk model needs new field:
-// ALTER TABLE Risk ADD COLUMN linkedSuppliers Supplier[] @relation("SupplierRisks");
-// ALTER TABLE Risk ADD COLUMN supplierRiskScore Float;
+// ============================================================================
+// PHASE 4 STEP 2: COMPLAINT MODULE
+// ============================================================================
+
+model Complaint {
+  id                String @id @default(cuid())
+  complaintNumber   String @unique  // CMPL-2026-00001
+
+  // Basic info
+  title             String
+  description       String
+  category          String  // Product Quality, Service, Delivery, Other
+  source            String  // Customer, Internal, Supplier, Regulatory
+  severity          String @default("MEDIUM")  // LOW, MEDIUM, HIGH, CRITICAL
+
+  // Status & dates
+  status            String @default("OPEN")  // OPEN, IN_REVIEW, INVESTIGATING, RESOLVED, CLOSED
+  reportedDate      DateTime
+  reportedBy        String?  // User ID or external name
+  receivedDate      DateTime @default(now())
+
+  // Customer/External info
+  customerName      String?
+  customerEmail     String?
+  customerPhone     String?
+
+  // Investigation
+  investigation     ComplaintInvestigation?
+  findings          String?  // Investigation findings
+  rootCause         String?  // Identified root cause
+  investigatedBy    String?  // User ID
+  investigatedAt    DateTime?
+
+  // Auto-triggers
+  riskAutoCreated   Boolean @default(false)
+  linkedRiskId      String?
+  linkedRisk        Risk? @relation("ComplaintRisks", fields: [linkedRiskId], references: [id])
+
+  capaAutoCreated   Boolean @default(false)
+  linkedCapas       CorrectiveAction[] @relation("ComplaintToCAPAPhase4")
+
+  // Attachments
+  attachments       ComplaintAttachment[]
+
+  // Audit
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([status])
+  @@index([severity])
+  @@index([category])
+  @@index([source])
+  @@index([linkedRiskId])
+}
+
+model ComplaintInvestigation {
+  id                String @id @default(cuid())
+  complaintId       String @unique
+  complaint         Complaint @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+
+  startDate         DateTime @default(now())
+  endDate           DateTime?
+  status            String @default("IN_PROGRESS")  // IN_PROGRESS, COMPLETED, PAUSED
+
+  investigator      String?  // User ID
+  methodology       String?  // Investigation methodology
+  findings          String?
+  recommendation    String?
+
+  // Severity-based tracking
+  immediateActions  String?  // Actions taken immediately
+  preventiveMeasures String?  // Long-term preventive measures
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([status])
+  @@index([complaintId])
+}
+
+model ComplaintAttachment {
+  id                String @id @default(cuid())
+  complaintId       String
+  complaint         Complaint @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+
+  filename          String
+  fileUrl           String
+  fileType          String  // application/pdf, image/png, etc.
+  fileSize          Int
+  uploadedBy        String?  // User ID
+  uploadedAt        DateTime @default(now())
+
+  description       String?
+
+  @@index([complaintId])
+}
+
+// Update existing models for Complaint linking
+// Note: CorrectiveAction needs new field:
+// ALTER TABLE CorrectiveAction ADD COLUMN complaintId String;
+// ALTER TABLE CorrectiveAction ADD COLUMN complaint Complaint @relation("ComplaintToCAPAPhase4");
+// ALTER TABLE Risk ADD COLUMN linkedComplaints Complaint[] @relation("ComplaintRisks");
+// ALTER TABLE Risk ADD COLUMN complaintRiskScore Float;
