@@ -111,6 +111,12 @@ model User {
   // Phase 1: RBAC relations
   userPermissions UserPermission[]
 
+  // Phase 3: Audit and Risk relations
+  auditsCreated Audit[] @relation("AuditCreatedBy")
+  risksCreated  Risk[]  @relation("RiskCreatedBy")
+  risksOwned    Risk[]  @relation("RiskOwner")
+  riskAssessments RiskAssessment[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -777,4 +783,226 @@ model WorkflowInstanceEvent {
   @@index([performedBy])
   @@index([performedAt])
   @@index([eventType])
+}
+
+/**
+ * PHASE 3: AUDIT MODULE
+ * Audit management for compliance tracking
+ */
+
+model Audit {
+  id String @id @default(cuid())
+
+  // Identification
+  auditNumber String   @unique // Sequential: AUDIT-2026-001
+  title       String
+  description String?
+
+  // Audit Properties
+  auditType  String // "internal", "external", "supplier"
+  auditScope String // What's being audited
+  auditDate  DateTime
+  status     String @default("SCHEDULED") // SCHEDULED, IN_PROGRESS, COMPLETED, CLOSED
+
+  // Teams
+  auditTeamIds String? // JSON array of user IDs
+
+  // Template (optional)
+  templateId String?
+  template   AuditTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+
+  // Findings
+  findings AuditFinding[]
+
+  // Workflow
+  workflowInstanceId String?
+
+  // Audit
+  createdById String
+  createdBy   User   @relation("AuditCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  completedAt DateTime?
+
+  @@index([status])
+  @@index([auditDate])
+  @@index([createdById])
+  @@index([auditType])
+}
+
+model AuditTemplate {
+  id String @id @default(cuid())
+
+  // Identification
+  name        String @unique
+  description String?
+
+  // Template
+  questions AuditQuestion[]
+  audits    Audit[]
+
+  // Audit
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([name])
+}
+
+model AuditQuestion {
+  id String @id @default(cuid())
+
+  // Relationship
+  templateId String
+  template   AuditTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  // Question
+  questionNumber Int
+  question       String
+  category       String? // Process, Product, System, etc.
+
+  // Audit
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([templateId, questionNumber])
+  @@index([templateId])
+}
+
+model AuditFinding {
+  id String @id @default(cuid())
+
+  // Relationship
+  auditId String
+  audit   Audit @relation(fields: [auditId], references: [id], onDelete: Cascade)
+
+  // Finding
+  findingNumber Int
+  description   String
+  severity      Severity // LOW, MEDIUM, HIGH, CRITICAL
+  category      String?  // Process, Product, System, etc.
+  status        String @default("OPEN") // OPEN, INVESTIGATION, RESOLVED, CLOSED
+
+  // CAPA Link
+  linkedCapaId  String?
+  capaAutoCreated Boolean @default(false)
+
+  // Timeline
+  dueDate    DateTime?
+  resolvedAt DateTime?
+
+  // Audit
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([auditId, findingNumber])
+  @@index([auditId])
+  @@index([severity])
+  @@index([status])
+}
+
+/**
+ * PHASE 3: RISK MODULE
+ * Risk management and control tracking
+ */
+
+model Risk {
+  id String @id @default(cuid())
+
+  // Identification
+  riskNumber String @unique // Sequential: RISK-2026-001
+  title      String
+  description String?
+
+  // Risk Properties
+  riskType    String // "operational", "compliance", "strategic", "financial"
+  process     String // Which process/area is at risk
+  status      String @default("IDENTIFIED") // IDENTIFIED, ASSESSED, CONTROLLED, MITIGATED, ACCEPTED
+
+  // Initial Assessment
+  inherentProbability Int @default(1) // 1-5 scale
+  inherentImpact      Int @default(1) // 1-5 scale
+  inherentRisk        Int? // Calculated: probability * impact
+
+  // Post-Control Assessment
+  residualProbability Int? // 1-5 scale (after controls)
+  residualImpact      Int? // 1-5 scale (after controls)
+  residualRisk        Int? // Calculated: probability * impact
+
+  // Risk Owner
+  ownerId String?
+  owner   User? @relation("RiskOwner", fields: [ownerId], references: [id])
+
+  // Controls
+  controls RiskControl[]
+
+  // Assessments
+  assessments RiskAssessment[]
+
+  // Workflow
+  workflowInstanceId String?
+
+  // Audit
+  createdById String
+  createdBy   User   @relation("RiskCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([status])
+  @@index([riskType])
+  @@index([createdById])
+  @@index([ownerId])
+}
+
+model RiskControl {
+  id String @id @default(cuid())
+
+  // Relationship
+  riskId String
+  risk   Risk @relation(fields: [riskId], references: [id], onDelete: Cascade)
+
+  // Control
+  controlName String
+  description String?
+  controlType String // "preventive", "detective", "corrective"
+  status      String @default("DESIGNED") // DESIGNED, IMPLEMENTED, TESTED, EFFECTIVE, INEFFECTIVE
+
+  // Effectiveness
+  effectivenessRating Int? // 1-5 scale
+  lastTestedDate      DateTime?
+  testResults         String? // JSON: test evidence
+
+  // Audit
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([riskId])
+  @@index([status])
+  @@index([controlType])
+}
+
+model RiskAssessment {
+  id String @id @default(cuid())
+
+  // Relationship
+  riskId String
+  risk   Risk @relation(fields: [riskId], references: [id], onDelete: Cascade)
+
+  // Assessment
+  assessmentDate DateTime
+  assessorId     String
+  assessor       User @relation(fields: [assessorId], references: [id])
+
+  // Findings
+  probability Int
+  impact      Int
+  overallRisk Int // probability * impact
+  notes       String?
+
+  // Audit
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([riskId])
+  @@index([assessorId])
+  @@index([assessmentDate])
 }

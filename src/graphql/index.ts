@@ -7,6 +7,8 @@ import { correctiveActionTypeDefs, correctiveActionResolvers } from '@/modules/c
 import { dashboardTypeDefs, dashboardResolvers } from '@/modules/dashboard';
 import { permissionTypeDefs, permissionResolvers } from '@/modules/permission';
 import { workflowTypeDefs, workflowResolvers } from '@/modules/workflow';
+import { auditTypeDefs, auditResolvers } from '@/modules/audit';
+import { riskTypeDefs, riskResolvers } from '@/modules/risk';
 
 export const typeDefs = [
   baseTypeDefs,
@@ -18,6 +20,8 @@ export const typeDefs = [
   dashboardTypeDefs,
   permissionTypeDefs,
   workflowTypeDefs,
+  auditTypeDefs,
+  riskTypeDefs,
 ];
 
 export const resolvers = {
@@ -31,6 +35,8 @@ export const resolvers = {
     ...dashboardResolvers.Query,
     ...permissionResolvers.Query,
     ...workflowResolvers.Query,
+    ...auditResolvers.Query,
+    ...riskResolvers.Query,
   },
   Mutation: {
     ...baseResolvers.Mutation,
@@ -42,5 +48,7 @@ export const resolvers = {
     ...dashboardResolvers.Mutation,
     ...permissionResolvers.Mutation,
     ...workflowResolvers.Mutation,
+    ...auditResolvers.Mutation,
+    ...riskResolvers.Mutation,
   },
 };
