@@ -89,6 +89,29 @@ enum NotificationStatus {
   RETRYING
 }
 
+enum TrainingStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum TrainingType {
+  MANDATORY
+  OPTIONAL
+  COMPLIANCE
+  TECHNICAL
+  SOFT_SKILLS
+}
+
+enum CertificationStatus {
+  VALID
+  EXPIRED
+  PENDING_RENEWAL
+  REVOKED
+}
+
 //
 // =======================
 // USER MODULE
@@ -119,6 +142,11 @@ model User {
 
   // Phase 3 Step 6: Admin relations
   workflowsSeeded WorkflowSeed[] @relation("WorkflowSeededBy")
+
+  // Phase 4 Step 3: Training relations
+  trainingCoursesAsInstructor TrainingCourse[] @relation("TrainingCourseInstructor")
+  trainingEnrollments EmployeeTraining[] @relation("EmployeeTraining")
+  trainingCertifications TrainingCertification[] @relation("EmployeeTrainingCertification")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1390,9 +1418,218 @@ model ComplaintAttachment {
   @@index([complaintId])
 }
 
-// Update existing models for Complaint linking
-// Note: CorrectiveAction needs new field:
-// ALTER TABLE CorrectiveAction ADD COLUMN complaintId String;
-// ALTER TABLE CorrectiveAction ADD COLUMN complaint Complaint @relation("ComplaintToCAPAPhase4");
-// ALTER TABLE Risk ADD COLUMN linkedComplaints Complaint[] @relation("ComplaintRisks");
-// ALTER TABLE Risk ADD COLUMN complaintRiskScore Float;
+//
+// =======================
+// TRAINING MODULE (PHASE 4 STEP 3)
+// =======================
+//
+
+model TrainingProgram {
+  id                String @id @default(cuid())
+  programNumber     String @unique  // TRAIN-PROG-2026-00001
+
+  // Basic info
+  name              String
+  description       String
+  type              TrainingType @default(OPTIONAL)
+  
+  // Competencies
+  requiredCompetencies String[]  // Comma-separated or JSON array
+  
+  // Duration & scheduling
+  durationHours     Float
+  targetAudience    String?  // Role or department
+  
+  // Status
+  status            String @default("ACTIVE")  // ACTIVE, ARCHIVED, DISCONTINUED
+  isActive          Boolean @default(true)
+  
+  // Relationships
+  courses           TrainingCourse[]
+  schedules         TrainingSchedule[]
+  enrollments       EmployeeTraining[]  @relation("ProgramEnrollments")
+  certifications    TrainingCertification[] @relation("ProgramCertifications")
+  
+  // Tracking
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@index([status])
+  @@index([type])
+}
+
+model TrainingCourse {
+  id                String @id @default(cuid())
+  courseNumber      String @unique  // TRAIN-COURSE-2026-00001
+
+  // Basic info
+  name              String
+  description       String
+  content           String?  // Course content, curriculum
+  
+  // Duration
+  durationHours     Float
+  numberOfModules   Int @default(1)
+  
+  // Instructor
+  instructorId      String?  // User ID
+  instructor        User? @relation("TrainingCourseInstructor", fields: [instructorId], references: [id])
+  
+  // Program association
+  programId         String
+  program           TrainingProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
+  
+  // Competency
+  targetCompetency  String?
+  competencyLevel   String?  // BASIC, INTERMEDIATE, ADVANCED
+  
+  // Status
+  status            String @default("ACTIVE")  // ACTIVE, ARCHIVED, DISCONTINUED
+  isActive          Boolean @default(true)
+  
+  // Relationships
+  schedules         TrainingSchedule[]
+  enrollments       EmployeeTraining[]
+  
+  // Tracking
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@index([programId])
+  @@index([instructorId])
+  @@index([status])
+}
+
+model TrainingSchedule {
+  id                String @id @default(cuid())
+  scheduleNumber    String @unique  // TRAIN-SCHED-2026-00001
+
+  // Course & Program
+  courseId          String
+  course            TrainingCourse @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  
+  programId         String
+  program           TrainingProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
+  
+  // Scheduling
+  startDate         DateTime
+  endDate           DateTime
+  startTime         String?  // HH:MM format
+  endTime           String?  // HH:MM format
+  
+  // Location & delivery
+  location          String?  // Physical location or online
+  deliveryMethod    String @default("IN_PERSON")  // IN_PERSON, ONLINE, HYBRID
+  
+  // Capacity
+  maxParticipants   Int @default(30)
+  currentEnrollment Int @default(0)
+  
+  // Status
+  status            String @default("SCHEDULED")  // SCHEDULED, IN_PROGRESS, COMPLETED, CANCELLED
+  
+  // Relationships
+  enrollments       EmployeeTraining[]
+  
+  // Tracking
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@index([courseId])
+  @@index([programId])
+  @@index([startDate])
+  @@index([status])
+}
+
+model EmployeeTraining {
+  id                String @id @default(cuid())
+  enrollmentNumber  String @unique  // ENROLL-2026-00001
+
+  // Employee
+  employeeId        String
+  employee          User @relation("EmployeeTraining", fields: [employeeId], references: [id], onDelete: Cascade)
+  
+  // Training
+  scheduleId        String
+  schedule          TrainingSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  
+  courseId          String
+  course            TrainingCourse @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  
+  programId         String
+  program           TrainingProgram @relation("ProgramEnrollments", fields: [programId], references: [id], onDelete: Cascade)
+  
+  // Enrollment status
+  status            TrainingStatus @default(PENDING)
+  enrolledDate      DateTime @default(now())
+  completedDate     DateTime?
+  
+  // Performance
+  attendanceHours   Float @default(0)
+  score             Float?  // 0-100
+  gradeReceived     String?  // PASS, FAIL
+  feedback          String?
+  
+  // Certification
+  certificateUrl    String?
+  certificateIssuedDate DateTime?
+  
+  // Assignment tracking
+  assignedBy        String?  // User ID (MANAGER)
+  assignedDate      DateTime?
+  dueDate           DateTime?
+  
+  // Audit
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@unique([employeeId, scheduleId])
+  @@index([employeeId])
+  @@index([scheduleId])
+  @@index([courseId])
+  @@index([programId])
+  @@index([status])
+}
+
+model TrainingCertification {
+  id                String @id @default(cuid())
+  certNumber        String @unique  // CERT-2026-00001
+
+  // Employee
+  employeeId        String
+  employee          User @relation("EmployeeTrainingCertification", fields: [employeeId], references: [id], onDelete: Cascade)
+  
+  // Certification info
+  certificationName String  // e.g., "ISO 9001 Auditor", "Six Sigma Green Belt"
+  issuingBody       String?  // Certifying organization
+  certificationCode String?  // External cert code
+  
+  // Validity
+  issuedDate        DateTime
+  expiryDate        DateTime?
+  renewalDate       DateTime?
+  status            CertificationStatus @default(VALID)
+  
+  // Training program linked
+  programId         String?
+  program           TrainingProgram? @relation("ProgramCertifications", fields: [programId], references: [id])
+  
+  // Document
+  documentUrl       String?
+  documentType      String?  // PDF, etc.
+  
+  // Audit
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@index([employeeId])
+  @@index([status])
+  @@index([expiryDate])
+  @@index([programId])
+}
+
+// Update User model to support training relationships
+// Note: User model should have these additional relations:
+// trainingCoursesAsInstructor: TrainingCourse[] @relation("TrainingCourseInstructor")
+// trainingEnrollments: EmployeeTraining[] @relation("EmployeeTraining")
+// trainingCertifications: TrainingCertification[] @relation("EmployeeTrainingCertification")

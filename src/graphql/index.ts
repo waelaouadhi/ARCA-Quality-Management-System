@@ -9,6 +9,9 @@ import { permissionTypeDefs, permissionResolvers } from '@/modules/permission';
 import { workflowTypeDefs, workflowResolvers } from '@/modules/workflow';
 import { auditTypeDefs, auditResolvers } from '@/modules/audit';
 import { riskTypeDefs, riskResolvers } from '@/modules/risk';
+import { supplierTypeDefs, supplierResolvers } from '@/modules/supplier';
+import { complaintTypeDefs, complaintResolvers } from '@/modules/complaint';
+import { trainingTypeDefs, trainingResolvers } from '@/modules/training';
 
 export const typeDefs = [
   baseTypeDefs,
@@ -22,6 +25,9 @@ export const typeDefs = [
   workflowTypeDefs,
   auditTypeDefs,
   riskTypeDefs,
+  supplierTypeDefs,
+  complaintTypeDefs,
+  trainingTypeDefs,
 ];
 
 export const resolvers = {
@@ -37,6 +43,9 @@ export const resolvers = {
     ...workflowResolvers.Query,
     ...auditResolvers.Query,
     ...riskResolvers.Query,
+    ...supplierResolvers.Query,
+    ...complaintResolvers.Query,
+    ...trainingResolvers.Query,
   },
   Mutation: {
     ...baseResolvers.Mutation,
@@ -50,5 +59,8 @@ export const resolvers = {
     ...workflowResolvers.Mutation,
     ...auditResolvers.Mutation,
     ...riskResolvers.Mutation,
+    ...supplierResolvers.Mutation,
+    ...complaintResolvers.Mutation,
+    ...trainingResolvers.Mutation,
   },
 };
