@@ -117,6 +117,9 @@ model User {
   risksOwned    Risk[]  @relation("RiskOwner")
   riskAssessments RiskAssessment[]
 
+  // Phase 3 Step 6: Admin relations
+  workflowsSeeded WorkflowSeed[] @relation("WorkflowSeededBy")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -849,11 +852,18 @@ model AuditTemplate {
   questions AuditQuestion[]
   audits    Audit[]
 
+  // Phase 3 Step 6: Admin tracking
+  usageCount    Int @default(0)  // Auto-increment when audit uses this template
+  isArchived    Boolean @default(false)
+  archivedAt    DateTime?
+  archivedBy    String?
+
   // Audit
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([name])
+  @@index([isArchived])
 }
 
 model AuditQuestion {
@@ -1019,3 +1029,123 @@ model RiskAssessment {
   @@index([assessorId])
   @@index([assessmentDate])
 }
+
+// ============================================================================
+// PHASE 3 STEP 6: ADMIN & METRICS
+// ============================================================================
+
+model WorkflowSeed {
+  id          String @id @default(cuid())
+  name        String @unique  // "audit_lifecycle", "risk_lifecycle"
+  description String
+  
+  // Reference to Workflow (for tracking which workflows are seeded)
+  workflowId  String?
+  
+  // Seeding metadata
+  seededAt    DateTime @default(now())
+  seededById  String
+  seededBy    User @relation("WorkflowSeededBy", fields: [seededById], references: [id])
+  
+  // For tracking step counts
+  stepCount   Int @default(0)
+  transitionCount Int @default(0)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([name])
+  @@index([seededById])
+}
+
+model AuditMetrics {
+  id              String   @id @default(cuid())
+  period          String   // "daily", "weekly", "monthly"
+  periodStart     DateTime
+  periodEnd       DateTime
+  
+  // Audit metrics
+  totalAudits     Int @default(0)
+  completedAudits Int @default(0)
+  avgFindingsSeverity String?  // "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"
+  criticalFindingsCount Int @default(0)
+  highFindingsCount Int @default(0)
+  
+  // CAPA metrics (from findings)
+  capaTriggeredCount Int @default(0)  // CAPAs auto-created from findings
+  capaCompletedCount Int @default(0)
+  
+  // Metadata
+  computedAt      DateTime @default(now())
+  computedBy      String?  // SYSTEM or user ID
+  
+  @@unique([period, periodStart, periodEnd])
+  @@index([periodStart])
+  @@index([period])
+}
+
+model RiskMetrics {
+  id              String   @id @default(cuid())
+  period          String   // "daily", "weekly", "monthly"
+  periodStart     DateTime
+  periodEnd       DateTime
+  
+  // Risk metrics
+  totalRisks      Int @default(0)
+  identifiedRisks Int @default(0)
+  assessedRisks   Int @default(0)
+  controlledRisks Int @default(0)
+  mitigatedRisks  Int @default(0)
+  
+  // Risk scoring
+  avgInherentRisk Float @default(0)  // Average of all inherent risks
+  avgResidualRisk Float @default(0)  // Average of all residual risks
+  criticalRisksCount Int @default(0)  // inherentRisk >= 20 (5*4)
+  highRisksCount  Int @default(0)     // inherentRisk >= 12 (3*4)
+  
+  // Metadata
+  computedAt      DateTime @default(now())
+  computedBy      String?  // SYSTEM or user ID
+  
+  @@unique([period, periodStart, periodEnd])
+  @@index([periodStart])
+  @@index([period])
+}
+
+model SystemHealthCheck {
+  id              String   @id @default(cuid())
+  
+  // Database connectivity
+  databaseConnected Boolean @default(false)
+  databaseError   String?
+  
+  // Tables check
+  auditTableExists Boolean @default(false)
+  riskTableExists  Boolean @default(false)
+  workflowTableExists Boolean @default(false)
+  
+  // Workflows check
+  auditLifecycleExists Boolean @default(false)
+  riskLifecycleExists  Boolean @default(false)
+  
+  // Counts
+  auditCount      Int @default(0)
+  riskCount       Int @default(0)
+  capaCount       Int @default(0)
+  userCount       Int @default(0)
+  
+  // Last backup (informational)
+  lastBackupTime  DateTime?
+  
+  // Metadata
+  checkedAt       DateTime @default(now())
+  checkedBy       String?
+  
+  @@index([checkedAt])
+}
+
+// Update AuditTemplate to track usage
+// Note: This is handled via migration, not here - just documenting the schema changes:
+// ALTER TABLE AuditTemplate ADD COLUMN usageCount INT DEFAULT 0;
+// ALTER TABLE AuditTemplate ADD COLUMN isArchived BOOLEAN DEFAULT false;
+// ALTER TABLE AuditTemplate ADD COLUMN archivedAt DATETIME;
