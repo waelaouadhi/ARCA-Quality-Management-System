@@ -184,16 +184,16 @@ model CorrectiveAction {
   escalation CorrectiveActionEscalation?
 
   // Phase 1 Enhancement: 2-stage CAPA workflow
-  capaNumber           String?           // Unique CAPA identifier (e.g., "CAPA-2024-001")
-  requestStatus        RequestStatus?    // Request approval stage (PENDING → ACCEPTED → PLANNED)
-  rootCauseAnalysis    String?           // Required before action can proceed
-  rootCauseAnalyzedAt  DateTime?         // When RCA was completed
-  rootCauseAnalyzedBy  String?           // User ID who analyzed root cause
-  completedAt          DateTime?         // When action was completed
-  completedBy          String?           // User ID who completed
-  verifiedAt           DateTime?         // When action was verified
-  verifiedBy           String?           // User ID who verified
-  verificationNotes    String?           // Notes from verification
+  capaNumber          String? // Unique CAPA identifier (e.g., "CAPA-2024-001")
+  requestStatus       RequestStatus? // Request approval stage (PENDING → ACCEPTED → PLANNED)
+  rootCauseAnalysis   String? // Required before action can proceed
+  rootCauseAnalyzedAt DateTime? // When RCA was completed
+  rootCauseAnalyzedBy String? // User ID who analyzed root cause
+  completedAt         DateTime? // When action was completed
+  completedBy         String? // User ID who completed
+  verifiedAt          DateTime? // When action was verified
+  verifiedBy          String? // User ID who verified
+  verificationNotes   String? // Notes from verification
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -565,4 +565,216 @@ model DashboardMetric {
   @@unique([metricKey, periodStartDate, periodEndDate])
   @@index([metricType])
   @@index([lastComputedAt])
+}
+
+//
+// =======================
+// WORKFLOW ENGINE (PHASE 2)
+// =======================
+//
+
+/**
+ * Workflow definition - configurable state machine
+ * Stores workflow configurations as JSON
+ * Example: Document approval workflow, NC lifecycle, etc.
+ */
+model Workflow {
+  id String @id @default(cuid())
+
+  // Identification
+  name        String  @unique // e.g., "document_approval", "nc_lifecycle"
+  description String?
+  version     Int     @default(1)
+  moduleType  String // e.g., "Document", "NonConformance", "CorrectiveAction"
+
+  // Configuration
+  config String // JSON: { steps: [...], transitions: [...], conditions: [...] }
+
+  // Status
+  isActive Boolean @default(true)
+
+  // Audit
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  updatedBy String?
+
+  // Relations
+  instances           WorkflowInstance[]
+  workflowSteps       WorkflowStep[]
+  workflowTransitions WorkflowTransition[]
+
+  @@index([moduleType])
+  @@index([isActive])
+  @@index([createdAt])
+}
+
+/**
+ * Workflow step definition
+ * Each step is a state in the workflow state machine
+ */
+model WorkflowStep {
+  id String @id @default(cuid())
+
+  // Identification
+  workflowId String
+  name       String // e.g., "PENDING", "APPROVED", "REJECTED"
+  stepOrder  Int // Position in workflow
+
+  // Step properties
+  type             String // "state", "decision", "action"
+  allowParallel    Boolean @default(false)
+  requiresApproval Boolean @default(false)
+  approverRole     String? // "MANAGER", "ADMIN", null = auto
+
+  // Validation
+  conditions String? // JSON: array of condition expressions
+
+  // Notifications
+  notifyOnEntry String? // JSON: list of notifications to send
+  notifyOnExit  String?
+
+  // Timeout
+  timeoutDays Int?
+
+  // Audit
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  workflow            Workflow             @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  outgoingTransitions WorkflowTransition[] @relation("from_step")
+  incomingTransitions WorkflowTransition[] @relation("to_step")
+  workflowInstances   WorkflowInstance[]
+
+  @@unique([workflowId, name])
+  @@index([workflowId])
+  @@index([stepOrder])
+}
+
+/**
+ * Workflow transition definition
+ * Defines valid state transitions and their conditions
+ */
+model WorkflowTransition {
+  id String @id @default(cuid())
+
+  // Identification
+  workflowId String
+
+  // Transition
+  fromStepId String
+  toStepId   String
+
+  // Conditions for transition
+  conditions String? // JSON: { operator: "AND"|"OR", rules: [...] }
+
+  // Trigger
+  triggerType  String // "automatic", "manual", "conditional"
+  triggerEvent String? // e.g., "document_submitted", "approval_granted"
+
+  // Audit trail requirement
+  requireComment Boolean @default(false)
+
+  // Ordering (for UI presentation)
+  displayOrder Int @default(0)
+
+  // Audit
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  workflow Workflow                @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  fromStep WorkflowStep            @relation("from_step", fields: [fromStepId], references: [id], onDelete: Restrict)
+  toStep   WorkflowStep            @relation("to_step", fields: [toStepId], references: [id], onDelete: Restrict)
+  events   WorkflowInstanceEvent[]
+
+  @@unique([fromStepId, toStepId, workflowId])
+  @@index([workflowId])
+  @@index([fromStepId])
+  @@index([toStepId])
+}
+
+/**
+ * Workflow instance - active workflow run
+ * Tracks the execution of a workflow on a specific resource
+ * Linked to Document, NonConformance, CorrectiveAction, etc.
+ */
+model WorkflowInstance {
+  id String @id @default(cuid())
+
+  // Identification
+  workflowId   String
+  resourceType String // "Document", "NonConformance", "CorrectiveAction"
+  resourceId   String // ID of the resource this workflow is running on
+
+  // Current state
+  currentStepId String?
+  status        String  @default("ACTIVE") // "ACTIVE", "COMPLETED", "PAUSED", "CANCELLED"
+
+  // Timeline
+  startedAt   DateTime  @default(now())
+  startedBy   String
+  completedAt DateTime?
+  completedBy String?
+
+  // Timing
+  timeoutAt DateTime? // When this workflow times out if incomplete
+
+  // Metadata
+  contextData String? // JSON: additional context/data for this workflow run
+
+  // Audit
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  workflow    Workflow                @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  currentStep WorkflowStep?           @relation(fields: [currentStepId], references: [id], onDelete: SetNull)
+  events      WorkflowInstanceEvent[]
+
+  @@unique([workflowId, resourceType, resourceId]) // One active workflow per resource
+  @@index([workflowId])
+  @@index([resourceType])
+  @@index([resourceId])
+  @@index([status])
+  @@index([startedAt])
+}
+
+/**
+ * Workflow instance event - audit trail
+ * Records every transition and action taken in a workflow
+ */
+model WorkflowInstanceEvent {
+  id String @id @default(cuid())
+
+  // Identification
+  instanceId   String
+  transitionId String?
+
+  // Event details
+  eventType String // "transitioned", "commented", "approved", "rejected", "paused", "resumed", "cancelled"
+  fromStep  String? // Previous step name
+  toStep    String? // New step name
+
+  // Who performed it
+  performedBy String
+  performedAt DateTime @default(now())
+
+  // Additional data
+  comment  String?
+  metadata String? // JSON: any additional event data (approver role, rejection reason, etc.)
+
+  // Audit
+  createdAt DateTime @default(now())
+
+  // Relations
+  instance   WorkflowInstance    @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  transition WorkflowTransition? @relation(fields: [transitionId], references: [id], onDelete: SetNull)
+
+  @@index([instanceId])
+  @@index([transitionId])
+  @@index([performedBy])
+  @@index([performedAt])
+  @@index([eventType])
 }
