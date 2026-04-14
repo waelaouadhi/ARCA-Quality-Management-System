@@ -208,6 +208,10 @@ model CorrectiveAction {
   auditFindingId String?
   auditFinding   AuditFinding? @relation("FindingToCAPA", fields: [auditFindingId], references: [id])
 
+  // Phase 4 Enhancement: Supplier issue linking
+  supplierIssueId String?
+  supplierIssue   SupplierIssue? @relation("IssueToCAPAPhase4", fields: [supplierIssueId], references: [id])
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -964,6 +968,10 @@ model Risk {
   // Workflow
   workflowInstanceId String?
 
+  // Phase 4: Supplier linking
+  linkedSuppliers Supplier[] @relation("SupplierRisks")
+  supplierRiskScore Float?  // Risk score specific to supplier source
+
   // Audit
   createdById String
   createdBy   User   @relation("RiskCreatedBy", fields: [createdById], references: [id])
@@ -1144,8 +1152,140 @@ model SystemHealthCheck {
   @@index([checkedAt])
 }
 
-// Update AuditTemplate to track usage
-// Note: This is handled via migration, not here - just documenting the schema changes:
-// ALTER TABLE AuditTemplate ADD COLUMN usageCount INT DEFAULT 0;
-// ALTER TABLE AuditTemplate ADD COLUMN isArchived BOOLEAN DEFAULT false;
-// ALTER TABLE AuditTemplate ADD COLUMN archivedAt DATETIME;
+// ============================================================================
+// PHASE 4 STEP 1: SUPPLIER MODULE
+// ============================================================================
+
+model Supplier {
+  id              String @id @default(cuid())
+  supplierNumber  String @unique  // SUPP-2026-00001
+
+  // Basic info
+  name            String
+  description     String?
+  category        String  // Electronics, Chemicals, Services, etc.
+  status          String @default("ACTIVE")  // ACTIVE, INACTIVE, SUSPENDED, APPROVED
+
+  // Contact info
+  primaryContact  String?  // Email
+  website         String?
+
+  // Ratings & Performance
+  ratingScore     Float @default(5.0)  // 1-5 scale
+  complianceScore Float @default(0)    // 0-100
+  lastAuditDate   DateTime?
+  lastAuditScore  Float?
+
+  // Relationships
+  contacts        SupplierContact[]
+  audits          SupplierAudit[]
+  evaluations     SupplierEvaluation[]
+  issues          SupplierIssue[]
+  linkedRisks     Risk[] @relation("SupplierRisks")
+
+  // Audit
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([status])
+  @@index([category])
+  @@index([ratingScore])
+}
+
+model SupplierContact {
+  id          String @id @default(cuid())
+  supplierId  String
+  supplier    Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  name        String
+  role        String  // Procurement, Quality, Technical
+  email       String
+  phone       String?
+
+  createdAt   DateTime @default(now())
+
+  @@index([supplierId])
+}
+
+model SupplierAudit {
+  id          String @id @default(cuid())
+  supplierId  String
+  supplier    Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  auditNumber String @unique  // SUPP-AUDIT-2026-00001
+  auditDate   DateTime
+  auditType   String  // INITIAL, SURVEILLANCE, RE-CERTIFICATION
+  auditScore  Float    // 0-100
+  status      String @default("PLANNED")  // PLANNED, COMPLETED, PASSED, FAILED
+
+  findings    SupplierAuditFinding[]
+  issues      SupplierIssue[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([supplierId])
+  @@index([status])
+  @@index([auditDate])
+}
+
+model SupplierAuditFinding {
+  id          String @id @default(cuid())
+  auditId     String
+  audit       SupplierAudit @relation(fields: [auditId], references: [id], onDelete: Cascade)
+
+  severity    String  // LOW, MEDIUM, HIGH, CRITICAL
+  description String
+  evidence    String?
+
+  createdAt   DateTime @default(now())
+
+  @@index([auditId])
+  @@index([severity])
+}
+
+model SupplierEvaluation {
+  id              String @id @default(cuid())
+  supplierId      String
+  supplier        Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  evaluationDate  DateTime
+  qualityScore    Float  // 0-100
+  deliveryScore   Float  // 0-100
+  priceScore      Float  // 0-100
+  overallScore    Float  // Average of above
+
+  notes           String?
+
+  createdAt       DateTime @default(now())
+
+  @@index([supplierId])
+  @@index([evaluationDate])
+}
+
+model SupplierIssue {
+  id          String @id @default(cuid())
+  supplierId  String
+  supplier    Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  auditId     String?
+  audit       SupplierAudit? @relation(fields: [auditId], references: [id])
+
+  description String
+  severity    String  // LOW, MEDIUM, HIGH, CRITICAL
+  status      String @default("OPEN")  // OPEN, IN_REVIEW, RESOLVED, CLOSED
+
+  linkedCapas CorrectiveAction[] @relation("IssueToCAPAPhase4")  // Auto-created CAPAs
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([supplierId])
+  @@index([status])
+  @@index([severity])
+}
+
+// Update existing models
+// Note: Risk model needs new field:
+// ALTER TABLE Risk ADD COLUMN linkedSuppliers Supplier[] @relation("SupplierRisks");
+// ALTER TABLE Risk ADD COLUMN supplierRiskScore Float;
