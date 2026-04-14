@@ -207,4 +207,58 @@ export class RiskService {
 
     return this.riskRepository.getAssessments(riskId);
   }
+
+  // Phase 3 Step 5: Track audits that assessed this risk
+  async addAuditAssessment(
+    riskId: string,
+    auditId: string,
+    currentUser?: JWTPayload
+  ) {
+    const user = requireAuthentication(currentUser);
+
+    const risk = await this.riskRepository.getRiskById(riskId);
+    if (!risk) {
+      throw new NotFoundError('Risk not found');
+    }
+
+    // Add audit to the list of audits that assessed this risk
+    const existingAuditIds = risk.sourceAuditIds
+      ? JSON.parse(risk.sourceAuditIds)
+      : [];
+
+    if (!existingAuditIds.includes(auditId)) {
+      existingAuditIds.push(auditId);
+
+      await prisma.risk.update({
+        where: { id: riskId },
+        data: {
+          sourceAuditIds: JSON.stringify(existingAuditIds),
+        },
+      });
+    }
+
+    return risk;
+  }
+
+  async getAuditsThatAssessedRisk(
+    riskId: string,
+    currentUser?: JWTPayload
+  ) {
+    const user = requireAuthentication(currentUser);
+
+    const risk = await this.riskRepository.getRiskById(riskId);
+    if (!risk) {
+      throw new NotFoundError('Risk not found');
+    }
+
+    if (!risk.sourceAuditIds) {
+      return [];
+    }
+
+    const auditIds = JSON.parse(risk.sourceAuditIds);
+    return prisma.audit.findMany({
+      where: { id: { in: auditIds } },
+      include: { findings: true, createdBy: true },
+    });
+  }
 }

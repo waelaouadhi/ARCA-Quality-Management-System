@@ -166,7 +166,7 @@ export class AuditService {
     const findings = await this.auditRepository.getAuditFindings(input.auditId);
     const nextFindingNumber = Math.max(...findings.map((f) => f.findingNumber), 0) + 1;
 
-    return this.auditRepository.createFinding({
+    const finding = await this.auditRepository.createFinding({
       auditId: input.auditId,
       findingNumber: nextFindingNumber,
       description: input.description,
@@ -174,6 +174,77 @@ export class AuditService {
       category: input.category,
       dueDate: input.dueDate,
     });
+
+    // Phase 3 Step 5: Auto-trigger CAPA for CRITICAL/HIGH findings in investigation
+    if (
+      (input.severity === 'CRITICAL' || input.severity === 'HIGH') &&
+      finding.status === 'OPEN'
+    ) {
+      try {
+        await this.autoCreateCAPAFromFinding(finding, audit, user);
+      } catch (error: any) {
+        console.error(
+          `Failed to auto-create CAPA for finding ${finding.id}:`,
+          error.message
+        );
+        // Don't fail the finding creation if CAPA creation fails
+      }
+    }
+
+    return finding;
+  }
+
+  private async autoCreateCAPAFromFinding(
+    finding: any,
+    audit: any,
+    user: JWTPayload
+  ) {
+    // Create a non-conformance as the basis for CAPA
+    const nc = await prisma.nonConformance.create({
+      data: {
+        title: `NC from Audit Finding: ${audit.auditNumber}`,
+        description: `Audit finding (${finding.severity}): ${finding.description}\n\nAudit: ${audit.title}\nAudit Type: ${audit.auditType}`,
+        severity: finding.severity === 'CRITICAL' ? 'CRITICAL' : 'HIGH',
+        status: 'OPEN',
+        reportedById: user.userId,
+      },
+    });
+
+    // Generate CAPA number
+    const year = new Date().getFullYear();
+    const count = await prisma.correctiveAction.count({
+      where: {
+        capaNumber: { startsWith: `CAPA-${year}-` },
+      },
+    });
+    const capaNumber = `CAPA-${year}-${String(count + 1).padStart(5, '0')}`;
+
+    // Create CAPA linked to the finding
+    const capa = await prisma.correctiveAction.create({
+      data: {
+        action: `Address audit finding: ${finding.description}`,
+        status: 'PENDING',
+        nonConformanceId: nc.id,
+        capaNumber,
+        auditFindingId: finding.id,
+        assignedToId: audit.createdById,
+        dueDate: finding.dueDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days default
+      },
+    });
+
+    // Update finding to track CAPA link
+    await prisma.auditFinding.update({
+      where: { id: finding.id },
+      data: {
+        linkedCapaId: capa.id,
+        capaAutoCreated: true,
+        status: 'INVESTIGATION',
+      },
+    });
+
+    console.log(
+      `Auto-created CAPA ${capaNumber} from audit finding ${finding.findingNumber}`
+    );
   }
 
   async updateFinding(id: string, input: any, currentUser?: JWTPayload) {
@@ -253,5 +324,82 @@ export class AuditService {
     }
 
     return this.auditRepository.getAuditFindings(auditId);
+  }
+
+  // Phase 3 Step 5: Get CAPAs triggered by this audit's findings
+  async getCapasTriggeredByFindings(
+    auditId: string,
+    currentUser?: JWTPayload
+  ) {
+    const user = requireAuthentication(currentUser);
+    const audit = await this.auditRepository.getAuditById(auditId);
+
+    if (!audit) {
+      throw new NotFoundError('Audit not found');
+    }
+
+    const capas = await prisma.correctiveAction.findMany({
+      where: {
+        auditFinding: {
+          auditId,
+        },
+      },
+      include: { nonConformance: true, assignedTo: true },
+    });
+
+    return capas;
+  }
+
+  // Phase 3 Step 5: Link risks assessed in this audit
+  async addRiskAssessment(
+    auditId: string,
+    riskId: string,
+    currentUser?: JWTPayload
+  ) {
+    const user = requireAuthentication(currentUser);
+
+    const audit = await this.auditRepository.getAuditById(auditId);
+    if (!audit) {
+      throw new NotFoundError('Audit not found');
+    }
+
+    const risk = await prisma.risk.findUnique({
+      where: { id: riskId },
+    });
+
+    if (!risk) {
+      throw new NotFoundError('Risk not found');
+    }
+
+    // Connect risk to audit (adds this audit to the risk's assessingAudits)
+    await prisma.risk.update({
+      where: { id: riskId },
+      data: {
+        auditsAssessing: {
+          connect: { id: auditId },
+        },
+      },
+    });
+
+    return audit;
+  }
+
+  // Get risks assessed in this audit
+  async getRisksAssessedInAudit(auditId: string, currentUser?: JWTPayload) {
+    const user = requireAuthentication(currentUser);
+
+    const audit = await this.auditRepository.getAuditById(auditId);
+    if (!audit) {
+      throw new NotFoundError('Audit not found');
+    }
+
+    return prisma.risk.findMany({
+      where: {
+        auditsAssessing: {
+          some: { id: auditId },
+        },
+      },
+      include: { owner: true, controls: true },
+    });
   }
 }

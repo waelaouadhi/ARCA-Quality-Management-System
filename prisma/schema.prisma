@@ -201,6 +201,10 @@ model CorrectiveAction {
   verifiedBy          String? // User ID who verified
   verificationNotes   String? // Notes from verification
 
+  // Phase 3 Enhancement: Audit finding linking
+  auditFindingId String?
+  auditFinding   AuditFinding? @relation("FindingToCAPA", fields: [auditFindingId], references: [id])
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -210,6 +214,7 @@ model CorrectiveAction {
   @@index([dueDate])
   @@index([assignedToId])
   @@index([capaNumber])
+  @@index([auditFindingId])
 }
 
 //
@@ -814,6 +819,9 @@ model Audit {
   // Findings
   findings AuditFinding[]
 
+  // Phase 3 Step 5: Risk linking (audit can assess risks)
+  assessedRisks Risk[] @relation("AuditAssessedRisks")
+
   // Workflow
   workflowInstanceId String?
 
@@ -885,6 +893,7 @@ model AuditFinding {
   // CAPA Link
   linkedCapaId  String?
   capaAutoCreated Boolean @default(false)
+  linkedCapas   CorrectiveAction[] @relation("FindingToCAPA")
 
   // Timeline
   dueDate    DateTime?
@@ -937,6 +946,10 @@ model Risk {
 
   // Assessments
   assessments RiskAssessment[]
+
+  // Phase 3 Step 5: Audit linking (source audit for this risk)
+  sourceAuditIds String? // JSON array of audit IDs that identified this risk
+  auditsAssessing Audit[] @relation("AuditAssessedRisks")
 
   // Workflow
   workflowInstanceId String?
