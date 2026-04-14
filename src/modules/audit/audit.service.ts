@@ -243,4 +243,15 @@ export class AuditService {
 
     return [];
   }
+
+  async getAuditFindings(auditId: string, currentUser?: JWTPayload) {
+    const user = requireAuthentication(currentUser);
+    const audit = await this.auditRepository.getAuditById(auditId);
+
+    if (!audit) {
+      throw new NotFoundError('Audit not found');
+    }
+
+    return this.auditRepository.getAuditFindings(auditId);
+  }
 }
