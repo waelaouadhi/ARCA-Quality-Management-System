@@ -10,7 +10,7 @@ export const dashboardTypeDefs = `#graphql
     overdueNCPercentage: Float!
     ncBySeverity: [SeverityBreakdown!]!
     capaCompletionRate: Float!
-    overdueCAPA Percentage: Float!
+    overdueCAPercentage: Float!
     slaViolations: Int!
     docsAwaitingReview: Int!
     activeEscalations: Int!
