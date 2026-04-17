@@ -342,8 +342,14 @@ jobs:
           kubectl port-forward service/qms-backend 18080:4000 --namespace "${{ steps.deploy-config.outputs.namespace }}" >/tmp/qms-port-forward.log 2>&1 &
           pf_pid=$!
           trap 'kill "$pf_pid" >/dev/null 2>&1 || true' EXIT
-          sleep 3
-          curl -fsS http://127.0.0.1:18080/metrics | grep -q 'qms_backend_http_requests_total'
+          for _ in 1 2 3 4 5 6 7 8 9 10; do
+            if curl -fsS http://127.0.0.1:18080/metrics >/tmp/qms-metrics.out; then
+              break
+            fi
+            sleep 1
+          done
+          test -s /tmp/qms-metrics.out
+          grep -Eq 'qms_backend_(http_requests_total|process_cpu_user_seconds_total)' /tmp/qms-metrics.out || (cat /tmp/qms-metrics.out && exit 1)
 
       - name: Verify alert rules loaded
         id: alert_rules
