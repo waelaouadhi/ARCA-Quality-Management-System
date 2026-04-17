@@ -68,21 +68,16 @@ jobs:
         if: steps.cache-deps.outputs.cache-hit != 'true'
         run: npm ci
 
-      - name: Create CI environment file from .env.example
-        run: |
-          cp .env.example .env
-          sed -i 's|^NODE_ENV=.*|NODE_ENV=test|' .env
-          sed -i 's|^PORT=.*|PORT=4000|' .env
-          sed -i 's|^DATABASE_URL=.*|DATABASE_URL=postgresql://postgres:password@localhost:5432/qms_ci|' .env
-          sed -i 's|^JWT_SECRET=.*|JWT_SECRET=CI-Test-Secret-Only-Change-In-Prod-1234!|' .env
-          sed -i 's|^CORS_ORIGIN=.*|CORS_ORIGIN=http://localhost:3000|' .env
-          sed -i 's|^LOG_LEVEL=.*|LOG_LEVEL=info|' .env
-
       - name: Generate Prisma client
         run: npm run prisma:generate
 
-      - name: Reset test database schema
-        run: npx prisma migrate reset --force --skip-seed
+      - name: Sync test database schema
+        run: npx prisma db push --force-reset
+
+      - name: Sanity check synced schema
+        run: |
+          npx prisma db pull --print > /tmp/introspected-schema.prisma
+          grep -q '^model ' /tmp/introspected-schema.prisma
 
       - name: Lint
         run: npm run lint
