@@ -10,10 +10,15 @@ on:
       deploy_environment:
         description: Deployment environment
         required: true
-        default: production
+        default: staging
         type: choice
         options:
+          - staging
           - production
+      image_tag:
+        description: Image tag to deploy (required for production promotion)
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -184,6 +189,39 @@ jobs:
       name: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_environment || 'production' }}
     timeout-minutes: 15
     steps:
+      - name: Resolve deployment target
+        id: deploy-config
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            target_env="staging"
+          else
+            target_env="${{ github.event.inputs.deploy_environment }}"
+          fi
+
+          if [ "$target_env" = "production" ] && [ -z "${{ github.event.inputs.image_tag }}" ]; then
+            echo "::error::Production promotion requires workflow_dispatch input 'image_tag' (typically a tested commit SHA)."
+            exit 1
+          fi
+
+          if [ -n "${{ github.event.inputs.image_tag }}" ]; then
+            image="ghcr.io/${GITHUB_REPOSITORY,,}:${{ github.event.inputs.image_tag }}"
+          else
+            image="${{ needs.ci.outputs.image }}"
+          fi
+
+          if [ "$target_env" = "production" ]; then
+            namespace="qms-production"
+            overlay="production"
+          else
+            namespace="qms-staging"
+            overlay="staging"
+          fi
+
+          echo "target_env=$target_env" >> "$GITHUB_OUTPUT"
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+          echo "namespace=$namespace" >> "$GITHUB_OUTPUT"
+          echo "overlay=$overlay" >> "$GITHUB_OUTPUT"
+
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
 
@@ -192,7 +230,7 @@ jobs:
 
       - name: Verify image signature
         run: |
-          cosign verify "${{ needs.ci.outputs.image }}" \
+          cosign verify "${{ steps.deploy-config.outputs.image }}" \
             --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
             --certificate-identity-regexp "^https://github.com/waelaouadhi/ARCA-Quality-Management-System/.github/workflows/ci-cd.yml@refs/heads/main$"
 
@@ -205,23 +243,26 @@ jobs:
           echo "${{ secrets.KUBE_CONFIG_DATA }}" | base64 -d > "$HOME/.kube/config"
           chmod 600 "$HOME/.kube/config"
 
+      - name: Ensure namespace exists
+        run: kubectl get namespace "${{ steps.deploy-config.outputs.namespace }}" >/dev/null 2>&1 || kubectl create namespace "${{ steps.deploy-config.outputs.namespace }}"
+
       - name: Create/Update runtime secret
         run: |
           kubectl create secret generic qms-backend-secret \
             --from-literal=DATABASE_URL="${{ secrets.DATABASE_URL }}" \
             --from-literal=JWT_SECRET="${{ secrets.JWT_SECRET }}" \
+            --namespace "${{ steps.deploy-config.outputs.namespace }}" \
             --dry-run=client -o yaml | kubectl apply -f -
 
-      - name: Apply Kubernetes manifests
+      - name: Apply Kubernetes overlay
         run: |
-          kubectl apply -f k8s/backend-service.yaml
-          kubectl apply -f k8s/backend-deployment.yaml
-          kubectl apply -f k8s/backend-hpa.yaml
+          kubectl apply -k "k8s/overlays/${{ steps.deploy-config.outputs.overlay }}"
 
       - name: Update backend image
         run: |
           kubectl set image deployment/qms-backend \
-            qms-backend=${{ needs.ci.outputs.image }}
+            qms-backend="${{ steps.deploy-config.outputs.image }}" \
+            --namespace "${{ steps.deploy-config.outputs.namespace }}"
 
       - name: Annotate deployment traceability
         run: |
@@ -229,12 +270,14 @@ jobs:
             ci.github.com/actor="${{ github.actor }}" \
             ci.github.com/sha="${{ github.sha }}" \
             ci.github.com/run-id="${{ github.run_id }}" \
-            --overwrite
+            ci.github.com/environment="${{ steps.deploy-config.outputs.target_env }}" \
+            --overwrite \
+            --namespace "${{ steps.deploy-config.outputs.namespace }}"
 
       - name: Wait for rollout
         id: rollout
         continue-on-error: true
-        run: kubectl rollout status deployment/qms-backend --timeout=180s
+        run: kubectl rollout status deployment/qms-backend --timeout=180s --namespace "${{ steps.deploy-config.outputs.namespace }}"
 
       - name: Smoke test backend service
         id: smoke
@@ -243,6 +286,7 @@ jobs:
         run: |
           kubectl run qms-smoke-${{ github.run_id }} \
             --image=curlimages/curl:8.8.0 \
+            --namespace "${{ steps.deploy-config.outputs.namespace }}" \
             --restart=Never \
             --attach \
             --rm \
@@ -251,16 +295,16 @@ jobs:
       - name: Collect deployment diagnostics
         if: steps.rollout.outcome != 'success' || steps.smoke.outcome == 'failure'
         run: |
-          kubectl get deploy,pods,svc,hpa
-          kubectl describe deployment/qms-backend
-          kubectl describe pod -l app=qms-backend
-          kubectl logs deployment/qms-backend --all-containers=true --tail=200
+          kubectl get deploy,pods,svc,hpa --namespace "${{ steps.deploy-config.outputs.namespace }}"
+          kubectl describe deployment/qms-backend --namespace "${{ steps.deploy-config.outputs.namespace }}"
+          kubectl describe pod -l app=qms-backend --namespace "${{ steps.deploy-config.outputs.namespace }}"
+          kubectl logs deployment/qms-backend --all-containers=true --tail=200 --namespace "${{ steps.deploy-config.outputs.namespace }}"
 
       - name: Roll back on deployment failure
         if: steps.rollout.outcome != 'success' || steps.smoke.outcome == 'failure'
         run: |
-          kubectl rollout undo deployment/qms-backend
-          kubectl rollout status deployment/qms-backend --timeout=180s || true
+          kubectl rollout undo deployment/qms-backend --namespace "${{ steps.deploy-config.outputs.namespace }}"
+          kubectl rollout status deployment/qms-backend --timeout=180s --namespace "${{ steps.deploy-config.outputs.namespace }}" || true
 
       - name: Fail workflow when deployment checks fail
         if: steps.rollout.outcome != 'success' || steps.smoke.outcome == 'failure'
