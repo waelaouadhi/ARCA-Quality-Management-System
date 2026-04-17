@@ -339,13 +339,11 @@ jobs:
         if: steps.rollout.outcome == 'success'
         continue-on-error: true
         run: |
-          kubectl run qms-metrics-${{ github.run_id }} \
-            --image=curlimages/curl:8.8.0 \
-            --namespace "${{ steps.deploy-config.outputs.namespace }}" \
-            --restart=Never \
-            --attach \
-            --rm \
-            --command -- sh -c "curl -fsS http://qms-backend:4000/metrics | grep -q 'qms_backend_http_requests_total'"
+          kubectl port-forward service/qms-backend 18080:4000 --namespace "${{ steps.deploy-config.outputs.namespace }}" >/tmp/qms-port-forward.log 2>&1 &
+          pf_pid=$!
+          trap 'kill "$pf_pid" >/dev/null 2>&1 || true' EXIT
+          sleep 3
+          curl -fsS http://127.0.0.1:18080/metrics | grep -q 'qms_backend_http_requests_total'
 
       - name: Verify alert rules loaded
         id: alert_rules
