@@ -98,6 +98,9 @@ jobs:
       - name: Test
         run: npm test -- --runInBand
 
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
       - name: Set image reference
         id: image-ref
         run: echo "image=ghcr.io/${GITHUB_REPOSITORY,,}:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
@@ -127,6 +130,8 @@ jobs:
         if: github.ref == 'refs/heads/main'
         run: |
           docker run --rm aquasec/trivy:0.57.1 image \
+            --scanners vuln \
+            --pkg-types os \
             --severity HIGH,CRITICAL \
             --ignore-unfixed \
             --exit-code 1 \
