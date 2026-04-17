@@ -246,6 +246,48 @@ jobs:
       - name: Ensure namespace exists
         run: kubectl get namespace "${{ steps.deploy-config.outputs.namespace }}" >/dev/null 2>&1 || kubectl create namespace "${{ steps.deploy-config.outputs.namespace }}"
 
+      - name: Apply observability stack
+        run: kubectl apply -k k8s/monitoring
+
+      - name: Configure alert delivery webhook
+        env:
+          ALERT_WEBHOOK_URL: ${{ secrets.ALERT_WEBHOOK_URL }}
+        run: |
+          if [ -z "$ALERT_WEBHOOK_URL" ]; then
+            echo "::warning::ALERT_WEBHOOK_URL is not set. Alertmanager will keep default null receiver."
+            exit 0
+          fi
+
+          cat <<EOF > /tmp/alertmanager.yml
+          route:
+            group_by: ['alertname', 'namespace']
+            group_wait: 30s
+            group_interval: 5m
+            repeat_interval: 1h
+            receiver: webhook-default
+          receivers:
+            - name: webhook-default
+              webhook_configs:
+                - url: '${ALERT_WEBHOOK_URL}'
+                  send_resolved: true
+          EOF
+
+          kubectl create configmap alertmanager-config \
+            --namespace qms-observability \
+            --from-file=alertmanager.yml=/tmp/alertmanager.yml \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+          kubectl rollout restart deployment/alertmanager --namespace qms-observability
+
+      - name: Wait for observability components
+        id: observability
+        continue-on-error: true
+        run: |
+          kubectl rollout status deployment/prometheus --namespace qms-observability --timeout=180s
+          kubectl rollout status deployment/alertmanager --namespace qms-observability --timeout=180s
+          kubectl rollout status deployment/kube-state-metrics --namespace qms-observability --timeout=180s
+          kubectl rollout status deployment/grafana --namespace qms-observability --timeout=180s
+
       - name: Create/Update runtime secret
         run: |
           kubectl create secret generic qms-backend-secret \
@@ -292,20 +334,49 @@ jobs:
             --rm \
             --command -- sh -c "curl -fsS http://qms-backend:4000/health"
 
+      - name: Verify metrics endpoint
+        id: metrics
+        if: steps.rollout.outcome == 'success'
+        continue-on-error: true
+        run: |
+          kubectl run qms-metrics-${{ github.run_id }} \
+            --image=curlimages/curl:8.8.0 \
+            --namespace "${{ steps.deploy-config.outputs.namespace }}" \
+            --restart=Never \
+            --attach \
+            --rm \
+            --command -- sh -c "curl -fsS http://qms-backend:4000/metrics | grep -q 'qms_backend_http_requests_total'"
+
+      - name: Verify alert rules loaded
+        id: alert-rules
+        if: steps.observability.outcome == 'success'
+        continue-on-error: true
+        run: |
+          kubectl run qms-alert-rules-${{ github.run_id }} \
+            --image=curlimages/curl:8.8.0 \
+            --namespace qms-observability \
+            --restart=Never \
+            --attach \
+            --rm \
+            --command -- sh -c "curl -fsS http://prometheus:9090/api/v1/rules | grep -q 'QMSHigh5xxRate'"
+
       - name: Collect deployment diagnostics
-        if: steps.rollout.outcome != 'success' || steps.smoke.outcome == 'failure'
+        if: steps.observability.outcome != 'success' || steps.rollout.outcome != 'success' || steps.smoke.outcome == 'failure' || steps.metrics.outcome == 'failure' || steps.alert-rules.outcome == 'failure'
         run: |
           kubectl get deploy,pods,svc,hpa --namespace "${{ steps.deploy-config.outputs.namespace }}"
           kubectl describe deployment/qms-backend --namespace "${{ steps.deploy-config.outputs.namespace }}"
           kubectl describe pod -l app=qms-backend --namespace "${{ steps.deploy-config.outputs.namespace }}"
           kubectl logs deployment/qms-backend --all-containers=true --tail=200 --namespace "${{ steps.deploy-config.outputs.namespace }}"
+          kubectl get deploy,pods,svc --namespace qms-observability
+          kubectl logs deployment/prometheus --tail=200 --namespace qms-observability || true
+          kubectl logs deployment/alertmanager --tail=200 --namespace qms-observability || true
 
       - name: Roll back on deployment failure
-        if: steps.rollout.outcome != 'success' || steps.smoke.outcome == 'failure'
+        if: steps.rollout.outcome != 'success' || steps.smoke.outcome == 'failure' || steps.metrics.outcome == 'failure'
         run: |
           kubectl rollout undo deployment/qms-backend --namespace "${{ steps.deploy-config.outputs.namespace }}"
           kubectl rollout status deployment/qms-backend --timeout=180s --namespace "${{ steps.deploy-config.outputs.namespace }}" || true
 
       - name: Fail workflow when deployment checks fail
-        if: steps.rollout.outcome != 'success' || steps.smoke.outcome == 'failure'
+        if: steps.observability.outcome != 'success' || steps.rollout.outcome != 'success' || steps.smoke.outcome == 'failure' || steps.metrics.outcome == 'failure' || steps.alert-rules.outcome == 'failure'
         run: exit 1

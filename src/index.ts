@@ -24,6 +24,7 @@ import { typeDefs, resolvers } from './graphql';
 import { formatError } from '@/shared/utils/errorHandler';
 import { AuthContext } from '@/shared/types/context';
 import { JWTPayload, verifyToken } from '@/shared/utils/jwt';
+import { getMetricsContentType, getMetricsSnapshot, metricsMiddleware } from '@/shared/utils/metrics';
 
 async function startServer() {
   const app = express();
@@ -85,9 +86,20 @@ async function startServer() {
     })
   );
   app.use(express.json());
+  app.use(metricsMiddleware);
 
   app.get('/health', (_req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  });
+
+  app.get('/metrics', async (_req, res) => {
+    try {
+      res.setHeader('Content-Type', getMetricsContentType());
+      res.send(await getMetricsSnapshot());
+    } catch (error) {
+      logger.error('Failed to render metrics endpoint', error);
+      res.status(500).json({ error: 'failed_to_render_metrics' });
+    }
   });
 
   app.use(

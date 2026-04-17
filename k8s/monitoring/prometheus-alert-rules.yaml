@@ -1,0 +1,60 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-alert-rules
+  namespace: qms-observability
+data:
+  qms-alert-rules.yml: |
+    groups:
+      - name: qms-backend-alerts
+        rules:
+          - alert: QMSRolloutReplicasMismatch
+            expr: |
+              kube_deployment_spec_replicas{namespace=~"qms-(staging|production)",deployment="qms-backend"}
+              >
+              kube_deployment_status_replicas_available{namespace=~"qms-(staging|production)",deployment="qms-backend"}
+            for: 10m
+            labels:
+              severity: warning
+            annotations:
+              summary: "qms-backend replicas are below desired count"
+              description: "Deployment {{ $labels.namespace }}/{{ $labels.deployment }} has not reached desired availability."
+
+          - alert: QMSPodCrashLooping
+            expr: |
+              increase(kube_pod_container_status_restarts_total{namespace=~"qms-(staging|production)",pod=~"qms-backend-.*"}[10m]) > 3
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: "qms-backend pods are restarting repeatedly"
+              description: "Pod {{ $labels.pod }} in {{ $labels.namespace }} restarted more than 3 times in the last 10 minutes."
+
+          - alert: QMSHigh5xxRate
+            expr: |
+              (
+                sum(rate(qms_backend_http_requests_total{namespace=~"qms-(staging|production)",status_code=~"5.."}[5m])) by (namespace)
+                /
+                sum(rate(qms_backend_http_requests_total{namespace=~"qms-(staging|production)"}[5m])) by (namespace)
+              ) > 0.05
+              and
+              sum(rate(qms_backend_http_requests_total{namespace=~"qms-(staging|production)"}[5m])) by (namespace) > 1
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: "High 5xx rate in qms-backend"
+              description: "Namespace {{ $labels.namespace }} is serving more than 5% 5xx responses over 5 minutes."
+
+          - alert: QMSHighLatencyP95
+            expr: |
+              histogram_quantile(
+                0.95,
+                sum(rate(qms_backend_http_request_duration_seconds_bucket{namespace=~"qms-(staging|production)"}[5m])) by (le, namespace)
+              ) > 1
+            for: 10m
+            labels:
+              severity: warning
+            annotations:
+              summary: "High p95 latency in qms-backend"
+              description: "Namespace {{ $labels.namespace }} p95 latency is above 1 second for 10 minutes."

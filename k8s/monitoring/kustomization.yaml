@@ -1,0 +1,22 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yaml
+  - prometheus-service-account.yaml
+  - prometheus-cluster-role.yaml
+  - prometheus-cluster-role-binding.yaml
+  - prometheus-config.yaml
+  - prometheus-alert-rules.yaml
+  - prometheus-deployment.yaml
+  - prometheus-service.yaml
+  - kube-state-metrics-service-account.yaml
+  - kube-state-metrics-cluster-role.yaml
+  - kube-state-metrics-cluster-role-binding.yaml
+  - kube-state-metrics-deployment.yaml
+  - kube-state-metrics-service.yaml
+  - alertmanager-config.yaml
+  - alertmanager-deployment.yaml
+  - alertmanager-service.yaml
+  - grafana-datasource-config.yaml
+  - grafana-deployment.yaml
+  - grafana-service.yaml
