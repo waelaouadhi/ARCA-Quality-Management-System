@@ -1,4 +1,4 @@
-import { NotFoundError, ValidationError } from '@/shared/errors';
+import { AuthorizationError, NotFoundError, ValidationError } from '@/shared/errors';
 import { PaginationInput } from '@/shared/utils/pagination';
 import { JWTPayload, requireAuthentication, AuthorizationPolicies, createAuthContext } from '@/shared/utils';
 import { AuditRepository } from './audit.repository';
@@ -67,7 +67,7 @@ export class AuditService {
     
     // Check authorization - Managers and Admins can create audits
     if (!['ADMIN', 'MANAGER'].includes(user.role)) {
-      throw new ValidationError('Only Admins and Managers can create audits');
+      throw new AuthorizationError('Only Admins and Managers can create audits');
     }
 
     const auditNumber = await this.generateAuditNumber();
@@ -174,6 +174,7 @@ export class AuditService {
       category: input.category,
       dueDate: input.dueDate,
     });
+    let updatedFinding = finding;
 
     // Phase 3 Step 5: Auto-trigger CAPA for CRITICAL/HIGH findings in investigation
     if (
@@ -182,6 +183,10 @@ export class AuditService {
     ) {
       try {
         await this.autoCreateCAPAFromFinding(finding, audit, user);
+        const reloadedFinding = await this.auditRepository.getFindingById(finding.id);
+        if (reloadedFinding) {
+          updatedFinding = reloadedFinding;
+        }
       } catch (error: any) {
         console.error(
           `Failed to auto-create CAPA for finding ${finding.id}:`,
@@ -191,7 +196,7 @@ export class AuditService {
       }
     }
 
-    return finding;
+    return updatedFinding;
   }
 
   private async autoCreateCAPAFromFinding(
@@ -250,7 +255,7 @@ export class AuditService {
   async updateFinding(id: string, input: any, currentUser?: JWTPayload) {
     const user = requireAuthentication(currentUser);
 
-    const finding = await this.auditRepository.getAuditFindings('').catch(() => null);
+    const finding = await this.auditRepository.getFindingById(id);
     if (!finding) {
       throw new NotFoundError('Finding not found');
     }
@@ -267,7 +272,7 @@ export class AuditService {
     const user = requireAuthentication(currentUser);
 
     if (!['ADMIN', 'MANAGER'].includes(user.role)) {
-      throw new ValidationError('Only Admins and Managers can create templates');
+      throw new AuthorizationError('Only Admins and Managers can create templates');
     }
 
     const template = await this.auditRepository.createTemplate({
@@ -277,9 +282,23 @@ export class AuditService {
 
     // Create questions if provided
     if (data.questions && data.questions.length > 0) {
+      const normalizedQuestions = data.questions.map((q: any, index: number) =>
+        typeof q === 'string'
+          ? {
+              questionNumber: index + 1,
+              question: q,
+              category: undefined,
+            }
+          : {
+              questionNumber: q.questionNumber ?? index + 1,
+              question: q.question,
+              category: q.category,
+            }
+      );
+
       await Promise.all(
-        data.questions.map((q: any) =>
-          this.auditRepository.createTemplate({
+        normalizedQuestions.map((q: any) =>
+          this.auditRepository.createTemplateQuestion({
             templateId: template.id,
             questionNumber: q.questionNumber,
             question: q.question,

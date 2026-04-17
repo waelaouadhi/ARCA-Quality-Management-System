@@ -3,22 +3,23 @@ import { AuditService } from '@/modules/audit/audit.service';
 import { RiskService } from '@/modules/risk/risk.service';
 import { JWTPayload } from '@/shared/utils';
 import { ValidationError, NotFoundError } from '@/shared/errors';
+import { ensureUsers, resetDatabase } from '@/test-utils/testDatabase';
 
 describe('Phase 3: Audit & Risk Modules', () => {
   const adminUser: JWTPayload = {
-    userId: 'admin-user-id-1234567890123456',
+    userId: 'caaaaaaaaaaaaaaaaaaaaaaa',
     email: 'admin@test.com',
     role: 'ADMIN',
   };
 
   const managerUser: JWTPayload = {
-    userId: 'manager-user-id-1234567890123',
+    userId: 'cbbbbbbbbbbbbbbbbbbbbbbb',
     email: 'manager@test.com',
     role: 'MANAGER',
   };
 
   const regularUser: JWTPayload = {
-    userId: 'user-id-1234567890123456789',
+    userId: 'ccccccccccccccccccccccccc',
     email: 'user@test.com',
     role: 'USER',
   };
@@ -26,7 +27,9 @@ describe('Phase 3: Audit & Risk Modules', () => {
   let auditService: AuditService;
   let riskService: RiskService;
 
-  beforeAll(() => {
+  beforeAll(async () => {
+    await resetDatabase();
+    await ensureUsers([adminUser, managerUser, regularUser]);
     auditService = new AuditService();
     riskService = new RiskService();
   });
@@ -241,7 +244,7 @@ describe('Phase 3: Audit & Risk Modules', () => {
       expect(control).toBeDefined();
       expect(control.riskId).toBe(riskId);
       expect(control.controlType).toBe('preventive');
-      expect(control.status).toBe('ACTIVE');
+      expect(control.status).toBe('DESIGNED');
     });
 
     it('gets risk controls', async () => {
@@ -312,7 +315,7 @@ describe('Phase 3: Audit & Risk Modules', () => {
     it('handles non-existent risk', async () => {
       try {
         await riskService.getRiskById(
-          'invalid-risk-id-1234567890123',
+          'cdddddddddddddddddddddddd',
           managerUser
         );
         fail('Should have thrown NotFoundError');
@@ -364,7 +367,7 @@ describe('Phase 3: Audit & Risk Modules', () => {
       );
 
       expect(risk.inherentRisk).toBe(16); // 4 * 4
-      expect(risk.residualRisk).toBeUndefined(); // Not set yet
+      expect(risk.residualRisk).toBeNull(); // Not set yet
 
       const updated = await riskService.updateRisk(
         risk.id,

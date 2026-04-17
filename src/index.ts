@@ -32,11 +32,58 @@ async function startServer() {
     typeDefs,
     resolvers,
     formatError,
+    introspection: true,
+    csrfPrevention: config.app.env === 'production',
   });
 
   await server.start();
 
-  app.use(cors({ origin: config.cors.origin }));
+  const configuredOrigins = config.cors.origin
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter((origin) => origin.length > 0);
+
+  const allowedOrigins = new Set(configuredOrigins);
+  for (const origin of configuredOrigins) {
+    if (origin.startsWith('http://')) {
+      allowedOrigins.add(origin.replace('http://', 'https://'));
+    }
+    if (origin.startsWith('https://')) {
+      allowedOrigins.add(origin.replace('https://', 'http://'));
+    }
+    if (origin.includes('127.0.0.1')) {
+      allowedOrigins.add(origin.replace('127.0.0.1', 'localhost'));
+    }
+    if (origin.includes('localhost')) {
+      allowedOrigins.add(origin.replace('localhost', '127.0.0.1'));
+    }
+  }
+
+  if (allowedOrigins.size === 0) {
+    allowedOrigins.add('http://127.0.0.1:8080');
+    allowedOrigins.add('http://localhost:8080');
+    allowedOrigins.add('https://127.0.0.1:8080');
+    allowedOrigins.add('https://localhost:8080');
+  }
+  allowedOrigins.add(`http://localhost:${config.app.port}`);
+  allowedOrigins.add(`http://127.0.0.1:${config.app.port}`);
+  allowedOrigins.add(`https://localhost:${config.app.port}`);
+  allowedOrigins.add(`https://127.0.0.1:${config.app.port}`);
+  allowedOrigins.add('https://studio.apollographql.com');
+
+  app.use(
+    cors({
+      origin: (origin, callback) => {
+        if (!origin || allowedOrigins.has(origin)) {
+          callback(null, true);
+          return;
+        }
+        callback(new Error(`Origin ${origin} is not allowed by CORS`));
+      },
+      methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+      credentials: true,
+    })
+  );
   app.use(express.json());
 
   app.get('/health', (_req, res) => {

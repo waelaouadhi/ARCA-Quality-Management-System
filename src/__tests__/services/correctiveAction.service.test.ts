@@ -1,16 +1,16 @@
 import { CorrectiveActionService } from '@/modules/correctiveAction/correctiveAction.service';
 import { AuthorizationError, NotFoundError, ValidationError } from '@/shared/errors';
 
-const adminUser = { userId: '550e8400-e29b-41d4-a716-446655440000', email: 'admin@qms.com', role: 'ADMIN' as const };
-const normalUser = { userId: '550e8400-e29b-41d4-a716-446655440001', email: 'user@qms.com', role: 'USER' as const };
+const adminUser = { userId: 'caaaaaaaaaaaaaaaaaaaaaaa', email: 'admin@qms.com', role: 'ADMIN' as const };
+const normalUser = { userId: 'cbbbbbbbbbbbbbbbbbbbbbbb', email: 'user@qms.com', role: 'USER' as const };
 
 describe('CorrectiveActionService', () => {
   const createRepository = () => ({
+    countByYear: jest.fn().mockResolvedValue(0),
     createCorrectiveAction: jest.fn(),
     getCorrectiveActions: jest.fn(),
     getCorrectiveActionById: jest.fn(),
     updateCorrectiveAction: jest.fn(),
-    completeCorrectiveAction: jest.fn(),
   });
 
   it('creates corrective action for ADMIN', async () => {
@@ -20,7 +20,7 @@ describe('CorrectiveActionService', () => {
     repository.createCorrectiveAction.mockResolvedValue(created);
 
     const result = await service.createCorrectiveAction(
-      { action: 'Fix label', nonConformanceId: '550e8400-e29b-41d4-a716-446655440010' },
+      { action: 'Fix label', nonConformanceId: 'ccccccccccccccccccccccccc' },
       adminUser
     );
 
@@ -32,7 +32,7 @@ describe('CorrectiveActionService', () => {
     const service = new CorrectiveActionService(repository as never);
 
     await expect(
-      service.createCorrectiveAction({ action: 'Fix label', nonConformanceId: '550e8400-e29b-41d4-a716-446655440011' }, normalUser)
+      service.createCorrectiveAction({ action: 'Fix label', nonConformanceId: 'cdddddddddddddddddddddddd' }, normalUser)
     ).rejects.toThrow('Insufficient permissions for this action');
   });
 
@@ -41,28 +41,36 @@ describe('CorrectiveActionService', () => {
     const service = new CorrectiveActionService(repository as never);
     repository.getCorrectiveActionById.mockResolvedValue(null);
 
-    await expect(service.completeCorrectiveAction('550e8400-e29b-41d4-a716-446655440012', adminUser)).rejects.toMatchObject({ statusCode: 404 });
+    await expect(service.completeCorrectiveAction('ceeeeeeeeeeeeeeeeeeeeeeee', adminUser)).rejects.toMatchObject({ statusCode: 404 });
   });
 
   it('rejects completing action already done', async () => {
     const repository = createRepository();
     const service = new CorrectiveActionService(repository as never);
-    repository.getCorrectiveActionById.mockResolvedValue({ id: '550e8400-e29b-41d4-a716-446655440013', status: 'DONE' });
+    repository.getCorrectiveActionById.mockResolvedValue({ id: 'cffffffffffffffffffffffff', status: 'DONE' });
 
-    await expect(service.completeCorrectiveAction('550e8400-e29b-41d4-a716-446655440013', adminUser)).rejects.toMatchObject({ statusCode: 400 });
-    expect(repository.completeCorrectiveAction).not.toHaveBeenCalled();
+    await expect(service.completeCorrectiveAction('cffffffffffffffffffffffff', adminUser)).rejects.toMatchObject({ statusCode: 400 });
+    expect(repository.updateCorrectiveAction).not.toHaveBeenCalled();
   });
 
   it('completes action when workflow is valid', async () => {
     const repository = createRepository();
     const service = new CorrectiveActionService(repository as never);
-    repository.getCorrectiveActionById.mockResolvedValue({ id: '550e8400-e29b-41d4-a716-446655440014', status: 'PENDING' });
-    repository.completeCorrectiveAction.mockResolvedValue({ id: '550e8400-e29b-41d4-a716-446655440014', status: 'DONE' });
+    repository.getCorrectiveActionById.mockResolvedValue({
+      id: 'cgggggggggggggggggggggggg',
+      status: 'PENDING',
+      rootCauseAnalysis: 'Root cause analysis text',
+      requestStatus: 'ACCEPTED',
+    });
+    repository.updateCorrectiveAction.mockResolvedValue({ id: 'cgggggggggggggggggggggggg', status: 'DONE' });
 
-    const result = await service.completeCorrectiveAction('550e8400-e29b-41d4-a716-446655440014', adminUser);
+    const result = await service.completeCorrectiveAction('cgggggggggggggggggggggggg', adminUser);
 
-    expect(repository.completeCorrectiveAction).toHaveBeenCalledWith('550e8400-e29b-41d4-a716-446655440014');
-    expect(result).toEqual({ id: '550e8400-e29b-41d4-a716-446655440014', status: 'DONE' });
+    expect(repository.updateCorrectiveAction).toHaveBeenCalledWith(
+      'cgggggggggggggggggggggggg',
+      expect.objectContaining({ status: 'DONE' })
+    );
+    expect(result).toEqual({ id: 'cgggggggggggggggggggggggg', status: 'DONE' });
   });
 
   it('rejects reads when unauthenticated', async () => {

@@ -1,4 +1,4 @@
-import { NotFoundError, ValidationError } from '@/shared/errors';
+import { AuthorizationError, NotFoundError, ValidationError } from '@/shared/errors';
 import { PaginationInput } from '@/shared/utils/pagination';
 import { JWTPayload, requireAuthentication } from '@/shared/utils';
 import { RiskRepository } from './risk.repository';
@@ -65,7 +65,7 @@ export class RiskService {
     const user = requireAuthentication(currentUser);
 
     if (!['ADMIN', 'MANAGER'].includes(user.role)) {
-      throw new ValidationError('Only Admins and Managers can create risks');
+      throw new AuthorizationError('Only Admins and Managers can create risks');
     }
 
     const riskNumber = await this.generateRiskNumber();
@@ -251,14 +251,15 @@ export class RiskService {
       throw new NotFoundError('Risk not found');
     }
 
-    if (!risk.sourceAuditIds) {
-      return [];
-    }
-
-    const auditIds = JSON.parse(risk.sourceAuditIds);
-    return prisma.audit.findMany({
-      where: { id: { in: auditIds } },
-      include: { findings: true, createdBy: true },
+    const riskWithAudits = await prisma.risk.findUnique({
+      where: { id: riskId },
+      include: {
+        auditsAssessing: {
+          include: { findings: true, createdBy: true },
+        },
+      },
     });
+
+    return riskWithAudits?.auditsAssessing ?? [];
   }
 }

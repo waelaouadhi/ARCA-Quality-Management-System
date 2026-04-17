@@ -33,7 +33,7 @@ const EnvSchema = z.object({
     .string()
     .min(32, '❌ SECURITY ERROR: JWT_SECRET must be at least 32 characters (256 bits minimum)')
     .refine(
-      (val) => /^[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]{32,}$/.test(val),
+      (val) => /^[a-zA-Z0-9!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]{32,}$/.test(val),
       'JWT_SECRET must contain mix of uppercase, lowercase, numbers, and special characters'
     ),
   JWT_EXPIRES_IN: z.string().default('7d'),
@@ -101,7 +101,7 @@ function validateJWTSecret(secret: string): void {
   if (!/[a-z]/.test(secret)) issues.push('Missing lowercase letters');
   if (!/[A-Z]/.test(secret)) issues.push('Missing uppercase letters');
   if (!/[0-9]/.test(secret)) issues.push('Missing numbers');
-  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(secret))
+  if (!/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(secret))
     issues.push('Missing special characters');
 
   if (issues.length > 0 && process.env.NODE_ENV === 'production') {

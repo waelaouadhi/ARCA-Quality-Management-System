@@ -178,6 +178,12 @@ export class AdminService {
       if (error instanceof ValidationError || error instanceof AuthorizationError) {
         throw error;
       }
+
+      const prismaError = error as { code?: string };
+      if (prismaError.code === 'P2002') {
+        throw new ValidationError(`Template "${input.name}" already exists`);
+      }
+
       throw new AppError('Failed to create audit template', 500);
     }
   }
@@ -248,6 +254,10 @@ export class AdminService {
     isArchived: boolean;
   }> {
     requireRole(user, ['ADMIN']);
+
+    if (!/^[a-z0-9]{25}$/.test(templateId)) {
+      throw new ValidationError('Template not found');
+    }
 
     try {
       const template = await prisma.auditTemplate.findUnique({

@@ -1,7 +1,5 @@
-import { PrismaClient } from '@prisma/client';
+import prisma from '@/config/database';
 import { PaginationInput } from '@/shared/utils/pagination';
-
-const prisma = new PrismaClient();
 
 export class RiskRepository {
   async createRisk(data: any) {

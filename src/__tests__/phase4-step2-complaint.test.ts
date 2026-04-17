@@ -1,15 +1,26 @@
 import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
 import prisma from '@/config/database';
 import { complaintService } from '@/modules/complaint';
+import { ensureUsers, resetDatabase } from '@/test-utils/testDatabase';
 
-const mockUser = { userId: 'test-user-123', role: 'MANAGER' } as any;
-const mockAdmin = { userId: 'admin-user-123', role: 'ADMIN' } as any;
+const mockUser = {
+  userId: 'cbbbbbbbbbbbbbbbbbbbbbbb',
+  email: 'manager@test.com',
+  role: 'MANAGER',
+} as any;
+const mockAdmin = {
+  userId: 'caaaaaaaaaaaaaaaaaaaaaaa',
+  email: 'admin@test.com',
+  role: 'ADMIN',
+} as any;
 
 describe('Phase 4 Step 2: Complaint Module Tests', () => {
   let complaintId: string;
 
   beforeAll(async () => {
     await prisma.$connect();
+    await resetDatabase();
+    await ensureUsers([mockUser, mockAdmin]);
   });
 
   afterAll(async () => {

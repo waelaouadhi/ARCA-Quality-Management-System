@@ -2,17 +2,18 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from '@jest/glo
 import prisma from '@/config/database';
 import { supplierService } from '@/modules/supplier';
 import { supplierRepository } from '@/modules/supplier';
+import { ensureUsers, resetDatabase } from '@/test-utils/testDatabase';
 
 // Mock user with MANAGER role
 const mockUser = {
-  userId: 'test-user-id-1234567890abcdef12345',
-  email: 'test@example.com',
+  userId: 'cbbbbbbbbbbbbbbbbbbbbbbb',
+  email: 'manager@test.com',
   role: 'MANAGER',
 } as any;
 
 const mockAdmin = {
-  userId: 'admin-user-id-1234567890abcd',
-  email: 'admin@example.com',
+  userId: 'caaaaaaaaaaaaaaaaaaaaaaa',
+  email: 'admin@test.com',
   role: 'ADMIN',
 } as any;
 
@@ -26,6 +27,8 @@ describe('Phase 4 Step 1: Supplier Module Tests', () => {
   beforeAll(async () => {
     // Ensure Prisma is connected
     await prisma.$connect();
+    await resetDatabase();
+    await ensureUsers([mockUser, mockAdmin]);
   });
 
   afterAll(async () => {
@@ -608,7 +611,7 @@ describe('Phase 4 Step 1: Supplier Module Tests', () => {
         complianceScore: 25,
       });
 
-      const lowPerformers = await supplierService.getLowPerformingSuppliers(50, 10);
+      const lowPerformers = await supplierService.getLowPerformingSuppliers(50, 1000);
 
       expect(lowPerformers).toBeInstanceOf(Array);
       expect(lowPerformers.some((s) => s.id === lowPerformer.id)).toBe(true);

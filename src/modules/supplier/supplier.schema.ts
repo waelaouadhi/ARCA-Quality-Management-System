@@ -2,14 +2,21 @@ export const supplierTypeDefs = `#graphql
   type Supplier {
     id: ID!
     supplierNumber: String!
+    supplierCode: String
     name: String!
     description: String
     category: String!
     status: String!
     primaryContact: String
+    phone: String
+    email: String
     website: String
     ratingScore: Float!
+    qualityRating: Float
     complianceScore: Float!
+    deliveryRating: Float
+    riskLevel: String
+    notes: String
     lastAuditDate: String
     lastAuditScore: Float
     createdAt: String!
@@ -135,6 +142,10 @@ export const supplierTypeDefs = `#graphql
       description: String
       category: String!
       primaryContact: String
+      phone: String
+      email: String
+      code: String
+      address: String
       website: String
     ): SupplierPayload!
 
@@ -145,9 +156,15 @@ export const supplierTypeDefs = `#graphql
       category: String
       status: String
       primaryContact: String
+      phone: String
+      email: String
       website: String
       ratingScore: Float
+      qualityRating: Float
       complianceScore: Float
+      deliveryRating: Float
+      riskLevel: String
+      notes: String
     ): SupplierPayload!
 
     deleteSupplier(id: ID!): Boolean!

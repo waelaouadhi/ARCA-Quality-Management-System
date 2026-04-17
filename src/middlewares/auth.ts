@@ -2,7 +2,11 @@ import { Request, Response, NextFunction } from 'express';
 import { verifyToken } from '@/shared/utils/jwt';
 import { AuthenticationError } from '@/shared/errors';
 
-export const authenticate = (req: Request, _res: Response, next: NextFunction) => {
+type AuthenticatedRequest = Request & {
+  user?: ReturnType<typeof verifyToken>;
+};
+
+export const authenticate = (req: AuthenticatedRequest, _res: Response, next: NextFunction) => {
   try {
     const authHeader = req.headers.authorization;
 
@@ -13,7 +17,7 @@ export const authenticate = (req: Request, _res: Response, next: NextFunction) =
     const token = authHeader.substring(7);
     const payload = verifyToken(token);
 
-    (req as any).user = payload;
+    req.user = payload;
     next();
   } catch (error) {
     next(error);

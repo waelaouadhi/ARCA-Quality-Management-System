@@ -12,6 +12,10 @@ async function main() {
   await prisma.correctiveActionEscalation.deleteMany();
   await prisma.nonConformanceEscalation.deleteMany();
   await prisma.correctiveAction.deleteMany();
+  await prisma.auditFinding.deleteMany();
+  await prisma.audit.deleteMany();
+  await prisma.auditQuestion.deleteMany();
+  await prisma.auditTemplate.deleteMany();
   await prisma.nonConformance.deleteMany();
   await prisma.auditLog.deleteMany();
   await prisma.document.deleteMany();
@@ -90,6 +94,219 @@ async function main() {
     }),
   ]);
   console.log(`✅ Users seeded: ${users.length}`);
+
+  // Audit Templates (2)
+  const auditTemplates = await prisma.$transaction([
+    prisma.auditTemplate.create({
+      data: {
+        name: 'Internal Process Compliance Template',
+        description: 'Internal process compliance and documentation checks.',
+      },
+    }),
+    prisma.auditTemplate.create({
+      data: {
+        name: 'Supplier Quality System Template',
+        description: 'Supplier quality system and incoming controls review.',
+      },
+    }),
+  ]);
+  console.log(`✅ AuditTemplates seeded: ${auditTemplates.length}`);
+
+  // Audit Questions (6)
+  const auditQuestions = await prisma.$transaction([
+    prisma.auditQuestion.create({
+      data: {
+        templateId: auditTemplates[0].id,
+        questionNumber: 1,
+        question: 'Are SOP revisions approved before effective date?',
+        category: 'System',
+      },
+    }),
+    prisma.auditQuestion.create({
+      data: {
+        templateId: auditTemplates[0].id,
+        questionNumber: 2,
+        question: 'Are training records updated for revised documents?',
+        category: 'Process',
+      },
+    }),
+    prisma.auditQuestion.create({
+      data: {
+        templateId: auditTemplates[0].id,
+        questionNumber: 3,
+        question: 'Are batch records complete and signed?',
+        category: 'Product',
+      },
+    }),
+    prisma.auditQuestion.create({
+      data: {
+        templateId: auditTemplates[1].id,
+        questionNumber: 1,
+        question: 'Does supplier maintain change control logs?',
+        category: 'System',
+      },
+    }),
+    prisma.auditQuestion.create({
+      data: {
+        templateId: auditTemplates[1].id,
+        questionNumber: 2,
+        question: 'Are incoming inspections performed to specification?',
+        category: 'Process',
+      },
+    }),
+    prisma.auditQuestion.create({
+      data: {
+        templateId: auditTemplates[1].id,
+        questionNumber: 3,
+        question: 'Are supplier CAPAs tracked to closure?',
+        category: 'Product',
+      },
+    }),
+  ]);
+  console.log(`✅ AuditQuestions seeded: ${auditQuestions.length}`);
+
+  // Audits (5)
+  const audits = await prisma.$transaction([
+    prisma.audit.create({
+      data: {
+        auditNumber: `AUDIT-${now.getFullYear()}-00001`,
+        title: 'Q1 Internal QMS Process Audit',
+        description: 'Quarterly internal audit for document control and production records.',
+        auditType: 'internal',
+        auditScope: 'Document control, batch records, training matrix',
+        auditDate: days(-12),
+        status: 'COMPLETED',
+        templateId: auditTemplates[0].id,
+        createdById: users[1].id,
+        completedAt: days(-10),
+      },
+    }),
+    prisma.audit.create({
+      data: {
+        auditNumber: `AUDIT-${now.getFullYear()}-00002`,
+        title: 'Supplier PM-77 Qualification Audit',
+        description: 'On-site supplier quality system verification.',
+        auditType: 'supplier',
+        auditScope: 'Incoming quality controls and traceability',
+        auditDate: days(-4),
+        status: 'IN_PROGRESS',
+        templateId: auditTemplates[1].id,
+        createdById: users[2].id,
+      },
+    }),
+    prisma.audit.create({
+      data: {
+        auditNumber: `AUDIT-${now.getFullYear()}-00003`,
+        title: 'External Certification Readiness Audit',
+        description: 'Preparation audit for certification surveillance.',
+        auditType: 'external',
+        auditScope: 'CAPA effectiveness and management review evidence',
+        auditDate: days(6),
+        status: 'SCHEDULED',
+        templateId: auditTemplates[0].id,
+        createdById: users[0].id,
+      },
+    }),
+    prisma.audit.create({
+      data: {
+        auditNumber: `AUDIT-${now.getFullYear()}-00004`,
+        title: 'Packaging Line Process Audit',
+        description: 'Focused internal audit on packaging controls.',
+        auditType: 'internal',
+        auditScope: 'Label controls, seal integrity, line clearance',
+        auditDate: days(-20),
+        status: 'CLOSED',
+        templateId: auditTemplates[0].id,
+        createdById: users[1].id,
+        completedAt: days(-18),
+      },
+    }),
+    prisma.audit.create({
+      data: {
+        auditNumber: `AUDIT-${now.getFullYear()}-00005`,
+        title: 'Supplier Calibration Program Audit',
+        description: 'Remote audit of supplier calibration and maintenance records.',
+        auditType: 'supplier',
+        auditScope: 'Calibration schedules, gauge R&R, preventive maintenance',
+        auditDate: days(2),
+        status: 'SCHEDULED',
+        templateId: auditTemplates[1].id,
+        createdById: users[2].id,
+      },
+    }),
+  ]);
+  console.log(`✅ Audits seeded: ${audits.length}`);
+
+  // Audit Findings (6)
+  const auditFindings = await prisma.$transaction([
+    prisma.auditFinding.create({
+      data: {
+        auditId: audits[0].id,
+        findingNumber: 1,
+        description: 'Two SOP revisions were approved without training evidence.',
+        severity: 'HIGH',
+        category: 'Process',
+        status: 'RESOLVED',
+        resolvedAt: days(-9),
+      },
+    }),
+    prisma.auditFinding.create({
+      data: {
+        auditId: audits[0].id,
+        findingNumber: 2,
+        description: 'One batch record missing verifier signature.',
+        severity: 'MEDIUM',
+        category: 'Product',
+        status: 'CLOSED',
+        resolvedAt: days(-8),
+      },
+    }),
+    prisma.auditFinding.create({
+      data: {
+        auditId: audits[1].id,
+        findingNumber: 1,
+        description: 'Incoming inspection reports are incomplete for two recent lots.',
+        severity: 'HIGH',
+        category: 'Process',
+        status: 'INVESTIGATION',
+        dueDate: days(3),
+      },
+    }),
+    prisma.auditFinding.create({
+      data: {
+        auditId: audits[1].id,
+        findingNumber: 2,
+        description: 'Supplier CAPA closure evidence not linked to root cause.',
+        severity: 'CRITICAL',
+        category: 'System',
+        status: 'OPEN',
+        dueDate: days(2),
+      },
+    }),
+    prisma.auditFinding.create({
+      data: {
+        auditId: audits[3].id,
+        findingNumber: 1,
+        description: 'Label verification checklist not archived for one shift.',
+        severity: 'LOW',
+        category: 'Process',
+        status: 'CLOSED',
+        resolvedAt: days(-17),
+      },
+    }),
+    prisma.auditFinding.create({
+      data: {
+        auditId: audits[3].id,
+        findingNumber: 2,
+        description: 'Seal pull-test log used outdated acceptance threshold.',
+        severity: 'MEDIUM',
+        category: 'Product',
+        status: 'RESOLVED',
+        resolvedAt: days(-16),
+      },
+    }),
+  ]);
+  console.log(`✅ AuditFindings seeded: ${auditFindings.length}`);
 
   // Documents (7)
   const documents = await prisma.$transaction([

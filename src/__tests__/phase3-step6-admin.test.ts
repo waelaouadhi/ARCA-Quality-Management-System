@@ -1,56 +1,30 @@
-import { PrismaClient } from '@prisma/client';
 import { AdminService } from '@/modules/admin';
-import { createAuthContext } from '@/shared/utils';
+import prisma from '@/config/database';
+import { ensureUsers, resetDatabase } from '@/test-utils/testDatabase';
 
 describe('Phase 3 Step 6: Admin Endpoints & Deployment Readiness', () => {
-  let prisma: PrismaClient;
   let adminService: AdminService;
   let adminUser: any;
   let regularUser: any;
 
   beforeAll(async () => {
-    prisma = new PrismaClient();
+    await resetDatabase();
     adminService = new AdminService();
 
     // Create test users
     adminUser = {
-      userId: 'test-admin-001',
+      userId: 'caaaaaaaaaaaaaaaaaaaaaaa',
       email: 'admin@test.com',
       role: 'ADMIN',
     };
 
     regularUser = {
-      userId: 'test-user-001',
+      userId: 'ccccccccccccccccccccccccc',
       email: 'user@test.com',
       role: 'USER',
     };
 
-    // Ensure users exist
-    await prisma.user.upsert({
-      where: { email: adminUser.email },
-      update: {},
-      create: {
-        id: adminUser.userId,
-        email: adminUser.email,
-        firstName: 'Admin',
-        lastName: 'User',
-        password: 'hashed-password',
-        role: adminUser.role as any,
-      },
-    });
-
-    await prisma.user.upsert({
-      where: { email: regularUser.email },
-      update: {},
-      create: {
-        id: regularUser.userId,
-        email: regularUser.email,
-        firstName: 'Regular',
-        lastName: 'User',
-        password: 'hashed-password',
-        role: regularUser.role as any,
-      },
-    });
+    await ensureUsers([adminUser, regularUser]);
   });
 
   afterAll(async () => {

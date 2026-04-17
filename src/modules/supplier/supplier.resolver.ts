@@ -14,67 +14,107 @@ import {
 } from './supplier.validation';
 
 export const supplierResolvers = {
+  Supplier: {
+    supplierCode: (parent: any) => parent.supplierNumber ?? null,
+    phone: (parent: any) => parent.primaryContact ?? null,
+    email: () => null,
+    qualityRating: (parent: any) => parent.ratingScore ?? null,
+    deliveryRating: (parent: any) => parent.complianceScore ?? null,
+    riskLevel: (parent: any) => {
+      const score = Number(parent.complianceScore ?? 0);
+      if (score < 40) return 'HIGH';
+      if (score < 70) return 'MEDIUM';
+      return 'LOW';
+    },
+    notes: (parent: any) => parent.description ?? null,
+  },
   Query: {
     supplier: async (_: any, { id }: any, context: any) => {
       try {
-        const user = requireAuthentication(context);
+        requireAuthentication(context);
         supplierIdSchema.parse(id);
-        return await supplierService.getSupplier(id);
+        const data = await supplierService.getSupplier(id);
+        return { success: true, data };
       } catch (error: any) {
-        throw new Error(error.message || 'Failed to fetch supplier');
+        return { success: false, message: error.message };
       }
     },
 
     suppliers: async (_: any, { skip = 0, take = 10 }: any, context: any) => {
       try {
-        const user = requireAuthentication(context);
-        return await supplierService.getAllSuppliers(skip, take);
+        requireAuthentication(context);
+        const result = await supplierService.getAllSuppliers(skip, take);
+        return { success: true, data: result.suppliers, total: result.total };
       } catch (error: any) {
-        throw new Error(error.message || 'Failed to fetch suppliers');
+        return { success: false, message: error.message, data: [], total: 0 };
       }
     },
 
-    suppliersByCategory: async (_: any, { category, skip = 0, take = 10 }: any, context: any) => {
+    suppliersByCategory: async (
+      _: any,
+      { category, skip = 0, take = 10 }: any,
+      context: any
+    ) => {
       try {
-        const user = requireAuthentication(context);
-        return await supplierService.getSuppliersByCategory(category, skip, take);
+        requireAuthentication(context);
+        const result = await supplierService.getSuppliersByCategory(
+          category,
+          skip,
+          take
+        );
+        return { success: true, data: result.suppliers, total: result.total };
       } catch (error: any) {
-        throw new Error(error.message || 'Failed to fetch suppliers by category');
+        return { success: false, message: error.message, data: [], total: 0 };
       }
     },
 
-    suppliersByStatus: async (_: any, { status, skip = 0, take = 10 }: any, context: any) => {
+    suppliersByStatus: async (
+      _: any,
+      { status, skip = 0, take = 10 }: any,
+      context: any
+    ) => {
       try {
-        const user = requireAuthentication(context);
-        return await supplierService.getSuppliersByStatus(status, skip, take);
+        requireAuthentication(context);
+        const result = await supplierService.getSuppliersByStatus(
+          status,
+          skip,
+          take
+        );
+        return { success: true, data: result.suppliers, total: result.total };
       } catch (error: any) {
-        throw new Error(error.message || 'Failed to fetch suppliers by status');
+        return { success: false, message: error.message, data: [], total: 0 };
       }
     },
 
     supplierContacts: async (_: any, { supplierId }: any, context: any) => {
       try {
-        const user = requireAuthentication(context);
+        requireAuthentication(context);
         supplierIdSchema.parse(supplierId);
-        return await supplierService.getContacts(supplierId);
+        const contacts = await supplierService.getContacts(supplierId);
+        return { success: true, data: contacts[0] ?? null };
       } catch (error: any) {
-        throw new Error(error.message || 'Failed to fetch supplier contacts');
+        return { success: false, message: error.message };
       }
     },
 
-    supplierAudits: async (_: any, { supplierId, skip = 0, take = 10 }: any, context: any) => {
+    supplierAudits: async (
+      _: any,
+      { supplierId, skip = 0, take = 10 }: any,
+      context: any
+    ) => {
       try {
-        const user = requireAuthentication(context);
+        requireAuthentication(context);
         supplierIdSchema.parse(supplierId);
-        return await supplierService.getAudits(supplierId, skip, take);
+        const result = await supplierService.getAudits(supplierId, skip, take);
+        return { success: true, data: result.audits, total: result.total };
       } catch (error: any) {
-        throw new Error(error.message || 'Failed to fetch supplier audits');
+        return { success: false, message: error.message, data: [], total: 0 };
       }
     },
 
     supplierAuditFindings: async (_: any, { auditId }: any, context: any) => {
       try {
-        const user = requireAuthentication(context);
+        requireAuthentication(context);
         supplierIdSchema.parse(auditId);
         return await supplierService.getAuditFindings(auditId);
       } catch (error: any) {
@@ -82,47 +122,66 @@ export const supplierResolvers = {
       }
     },
 
-    supplierEvaluations: async (_: any, { supplierId, skip = 0, take = 10 }: any, context: any) => {
+    supplierEvaluations: async (
+      _: any,
+      { supplierId, skip = 0, take = 10 }: any,
+      context: any
+    ) => {
       try {
-        const user = requireAuthentication(context);
+        requireAuthentication(context);
         supplierIdSchema.parse(supplierId);
-        return await supplierService.getEvaluations(supplierId, skip, take);
+        const result = await supplierService.getEvaluations(supplierId, skip, take);
+        return { success: true, data: result.evaluations, total: result.total };
       } catch (error: any) {
-        throw new Error(error.message || 'Failed to fetch supplier evaluations');
+        return { success: false, message: error.message, data: [], total: 0 };
       }
     },
 
-    supplierIssues: async (_: any, { supplierId, skip = 0, take = 10 }: any, context: any) => {
+    supplierIssues: async (
+      _: any,
+      { supplierId, skip = 0, take = 10 }: any,
+      context: any
+    ) => {
       try {
-        const user = requireAuthentication(context);
+        requireAuthentication(context);
         supplierIdSchema.parse(supplierId);
-        return await supplierService.getIssues(supplierId, skip, take);
+        const result = await supplierService.getIssues(supplierId, skip, take);
+        return { success: true, data: result.issues, total: result.total };
       } catch (error: any) {
-        throw new Error(error.message || 'Failed to fetch supplier issues');
+        return { success: false, message: error.message, data: [], total: 0 };
       }
     },
 
     topSuppliers: async (_: any, { limit = 10 }: any, context: any) => {
       try {
-        const user = requireAuthentication(context);
-        return await supplierService.getTopSuppliers(limit);
+        requireAuthentication(context);
+        const data = await supplierService.getTopSuppliers(limit);
+        return { success: true, data, total: data.length };
       } catch (error: any) {
-        throw new Error(error.message || 'Failed to fetch top suppliers');
+        return { success: false, message: error.message, data: [], total: 0 };
       }
     },
 
-    lowPerformingSuppliers: async (_: any, { complianceThreshold, limit }: any, context: any) => {
+    lowPerformingSuppliers: async (
+      _: any,
+      { complianceThreshold, limit }: any,
+      context: any
+    ) => {
       try {
-        const user = requireAuthentication(context);
-        return await supplierService.getLowPerformingSuppliers(complianceThreshold, limit);
+        requireAuthentication(context);
+        const data = await supplierService.getLowPerformingSuppliers(
+          complianceThreshold,
+          limit
+        );
+        return { success: true, data, total: data.length };
       } catch (error: any) {
-        throw new Error(error.message || 'Failed to fetch low performing suppliers');
+        return { success: false, message: error.message, data: [], total: 0 };
       }
     },
 
     supplierStatistics: async (_: any, __: any, context: any) => {
       try {
-        const user = requireAuthentication(context);
+        requireAuthentication(context);
         return await supplierService.getSupplierStatistics();
       } catch (error: any) {
         throw new Error(error.message || 'Failed to fetch supplier statistics');
@@ -131,23 +190,58 @@ export const supplierResolvers = {
   },
 
   Mutation: {
-    createSupplier: async (_: any, { name, description, category, primaryContact, website }: any, context: any) => {
+    createSupplier: async (
+      _: any,
+      {
+        name,
+        description,
+        category,
+        primaryContact,
+        phone,
+        email,
+        website,
+      }: any,
+      context: any
+    ) => {
       try {
         const user = requireAuthentication(context);
         const input = createSupplierSchema.parse({
           name,
           description,
           category,
-          primaryContact,
+          primaryContact:
+            primaryContact ??
+            phone ??
+            email ??
+            null,
           website,
         });
-        return await supplierService.createSupplier(user, input);
+        const data = await supplierService.createSupplier(user, input);
+        return { success: true, data };
       } catch (error: any) {
-        throw new Error(error.message || 'Failed to create supplier');
+        return { success: false, message: error.message };
       }
     },
 
-    updateSupplier: async (_: any, { id, name, description, category, status, primaryContact, website, ratingScore, complianceScore }: any, context: any) => {
+    updateSupplier: async (
+      _: any,
+      {
+        id,
+        name,
+        description,
+        category,
+        status,
+        primaryContact,
+        phone,
+        email,
+        website,
+        ratingScore,
+        qualityRating,
+        complianceScore,
+        deliveryRating,
+      }: any,
+      context: any
+    ) => {
       try {
         const user = requireAuthentication(context);
         const input = updateSupplierSchema.parse({
@@ -156,14 +250,15 @@ export const supplierResolvers = {
           description,
           category,
           status,
-          primaryContact,
+          primaryContact: primaryContact ?? phone ?? email ?? null,
           website,
-          ratingScore,
-          complianceScore,
+          ratingScore: ratingScore ?? qualityRating,
+          complianceScore: complianceScore ?? deliveryRating,
         });
-        return await supplierService.updateSupplier(user, input);
+        const data = await supplierService.updateSupplier(user, input);
+        return { success: true, data };
       } catch (error: any) {
-        throw new Error(error.message || 'Failed to update supplier');
+        return { success: false, message: error.message };
       }
     },
 
@@ -178,7 +273,11 @@ export const supplierResolvers = {
       }
     },
 
-    addSupplierContact: async (_: any, { supplierId, name, role, email, phone }: any, context: any) => {
+    addSupplierContact: async (
+      _: any,
+      { supplierId, name, role, email, phone }: any,
+      context: any
+    ) => {
       try {
         const user = requireAuthentication(context);
         const input = addContactSchema.parse({
@@ -188,13 +287,18 @@ export const supplierResolvers = {
           email,
           phone,
         });
-        return await supplierService.addContact(user, input);
+        const data = await supplierService.addContact(user, input);
+        return { success: true, data };
       } catch (error: any) {
-        throw new Error(error.message || 'Failed to add supplier contact');
+        return { success: false, message: error.message };
       }
     },
 
-    createSupplierAudit: async (_: any, { supplierId, auditDate, auditType, auditScore }: any, context: any) => {
+    createSupplierAudit: async (
+      _: any,
+      { supplierId, auditDate, auditType, auditScore }: any,
+      context: any
+    ) => {
       try {
         const user = requireAuthentication(context);
         const input = createAuditSchema.parse({
@@ -203,13 +307,18 @@ export const supplierResolvers = {
           auditType,
           auditScore,
         });
-        return await supplierService.createAudit(user, input);
+        const data = await supplierService.createAudit(user, input);
+        return { success: true, data };
       } catch (error: any) {
-        throw new Error(error.message || 'Failed to create supplier audit');
+        return { success: false, message: error.message };
       }
     },
 
-    addAuditFinding: async (_: any, { auditId, severity, description, evidence }: any, context: any) => {
+    addAuditFinding: async (
+      _: any,
+      { auditId, severity, description, evidence }: any,
+      context: any
+    ) => {
       try {
         const user = requireAuthentication(context);
         const input = addAuditFindingSchema.parse({
@@ -218,13 +327,18 @@ export const supplierResolvers = {
           description,
           evidence,
         });
-        return await supplierService.addAuditFinding(user, input);
+        const data = await supplierService.addAuditFinding(user, input);
+        return { success: true, data };
       } catch (error: any) {
-        throw new Error(error.message || 'Failed to add audit finding');
+        return { success: false, message: error.message };
       }
     },
 
-    createSupplierEvaluation: async (_: any, { supplierId, evaluationDate, qualityScore, deliveryScore, priceScore, notes }: any, context: any) => {
+    createSupplierEvaluation: async (
+      _: any,
+      { supplierId, evaluationDate, qualityScore, deliveryScore, priceScore, notes }: any,
+      context: any
+    ) => {
       try {
         const user = requireAuthentication(context);
         const input = createEvaluationSchema.parse({
@@ -235,13 +349,18 @@ export const supplierResolvers = {
           priceScore,
           notes,
         });
-        return await supplierService.createEvaluation(user, input);
+        const data = await supplierService.createEvaluation(user, input);
+        return { success: true, data };
       } catch (error: any) {
-        throw new Error(error.message || 'Failed to create supplier evaluation');
+        return { success: false, message: error.message };
       }
     },
 
-    createSupplierIssue: async (_: any, { supplierId, auditId, description, severity }: any, context: any) => {
+    createSupplierIssue: async (
+      _: any,
+      { supplierId, auditId, description, severity }: any,
+      context: any
+    ) => {
       try {
         const user = requireAuthentication(context);
         const input = createIssueSchema.parse({
@@ -250,35 +369,46 @@ export const supplierResolvers = {
           description,
           severity,
         });
-        return await supplierService.createIssue(user, input);
+        const data = await supplierService.createIssue(user, input);
+        return { success: true, data };
       } catch (error: any) {
-        throw new Error(error.message || 'Failed to create supplier issue');
+        return { success: false, message: error.message };
       }
     },
 
-    updateSupplierIssueStatus: async (_: any, { issueId, status }: any, context: any) => {
+    updateSupplierIssueStatus: async (
+      _: any,
+      { issueId, status }: any,
+      context: any
+    ) => {
       try {
         const user = requireAuthentication(context);
         const input = updateIssueStatusSchema.parse({
           issueId,
           status,
         });
-        return await supplierService.updateIssueStatus(user, input);
+        const data = await supplierService.updateIssueStatus(user, input);
+        return { success: true, data };
       } catch (error: any) {
-        throw new Error(error.message || 'Failed to update issue status');
+        return { success: false, message: error.message };
       }
     },
 
-    linkSupplierIssueToCAPA: async (_: any, { issueId, capaId }: any, context: any) => {
+    linkSupplierIssueToCAPA: async (
+      _: any,
+      { issueId, capaId }: any,
+      context: any
+    ) => {
       try {
         const user = requireAuthentication(context);
         const input = linkIssueToCapaSchema.parse({
           issueId,
           capaId,
         });
-        return await supplierService.linkIssueToCapa(user, input);
+        const data = await supplierService.linkIssueToCapa(user, input);
+        return { success: true, data };
       } catch (error: any) {
-        throw new Error(error.message || 'Failed to link issue to CAPA');
+        return { success: false, message: error.message };
       }
     },
   },

@@ -6,7 +6,8 @@ import parserTs from '@typescript-eslint/parser';
 export default [
   { ignores: ['dist/', 'node_modules/', 'coverage/'] },
   {
-    files: ['src/**/*.ts', '!src/__tests__/**/*.ts'],
+    files: ['src/**/*.ts'],
+    ignores: ['src/__tests__/**/*.ts'],
     languageOptions: {
       parser: parserTs,
       parserOptions: {
@@ -34,6 +35,31 @@ export default [
     },
   },
   {
+    files: ['src/scripts/**/*.ts'],
+    languageOptions: {
+      parser: parserTs,
+      parserOptions: {
+        ecmaVersion: 2022,
+        sourceType: 'module',
+      },
+      globals: {
+        ...globals.node,
+      },
+    },
+    plugins: {
+      '@typescript-eslint': pluginTs,
+    },
+    rules: {
+      ...pluginJs.configs.recommended.rules,
+      ...pluginTs.configs.recommended.rules,
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/no-floating-promises': 'off',
+      'no-console': 'off',
+    },
+  },
+  {
     files: ['src/__tests__/**/*.ts'],
     languageOptions: {
       parser: parserTs,
@@ -52,7 +78,10 @@ export default [
     rules: {
       ...pluginJs.configs.recommended.rules,
       ...pluginTs.configs.recommended.rules,
-      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-require-imports': 'off',
+      '@typescript-eslint/no-unused-vars': 'off',
+      'no-undef': 'off',
       'no-console': 'off',
     },
   },

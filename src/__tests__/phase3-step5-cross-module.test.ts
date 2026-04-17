@@ -2,16 +2,17 @@ import prisma from '@/config/database';
 import { AuditService } from '@/modules/audit/audit.service';
 import { RiskService } from '@/modules/risk/risk.service';
 import { JWTPayload } from '@/shared/utils';
+import { ensureUsers, resetDatabase } from '@/test-utils/testDatabase';
 
 describe('Phase 3 Step 5: Cross-Module Integration', () => {
   const adminUser: JWTPayload = {
-    userId: 'admin-user-id-1234567890123456',
+    userId: 'caaaaaaaaaaaaaaaaaaaaaaa',
     email: 'admin@test.com',
     role: 'ADMIN',
   };
 
   const managerUser: JWTPayload = {
-    userId: 'manager-user-id-1234567890123',
+    userId: 'cbbbbbbbbbbbbbbbbbbbbbbb',
     email: 'manager@test.com',
     role: 'MANAGER',
   };
@@ -19,7 +20,9 @@ describe('Phase 3 Step 5: Cross-Module Integration', () => {
   let auditService: AuditService;
   let riskService: RiskService;
 
-  beforeAll(() => {
+  beforeAll(async () => {
+    await resetDatabase();
+    await ensureUsers([adminUser, managerUser]);
     auditService = new AuditService();
     riskService = new RiskService();
   });

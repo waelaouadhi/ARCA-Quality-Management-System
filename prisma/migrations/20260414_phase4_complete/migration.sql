@@ -8,11 +8,6 @@ CREATE TYPE "CertificationStatus" AS ENUM ('VALID', 'EXPIRED', 'PENDING_RENEWAL'
 CREATE TYPE "DeliveryMethod" AS ENUM ('IN_PERSON', 'ONLINE', 'HYBRID');
 CREATE TYPE "CompetencyLevel" AS ENUM ('BASIC', 'INTERMEDIATE', 'ADVANCED');
 
--- Add training relationships to User table
-ALTER TABLE "User" ADD COLUMN "trainingCoursesAsInstructorId" TEXT;
-ALTER TABLE "User" ADD CONSTRAINT "User_trainingCoursesAsInstructorId_fkey" 
-  FOREIGN KEY ("trainingCoursesAsInstructorId") REFERENCES "TrainingCourse"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
 -- TrainingProgram Table
 CREATE TABLE "TrainingProgram" (
   "id" TEXT NOT NULL PRIMARY KEY,
@@ -21,7 +16,7 @@ CREATE TABLE "TrainingProgram" (
   "description" TEXT,
   "type" "TrainingType" NOT NULL,
   "mandatoryFor" TEXT[],
-  "competencyLevels" "CompetencyLevel"[] DEFAULT ARRAY[]::text[],
+  "competencyLevels" "CompetencyLevel"[] DEFAULT '{}'::"CompetencyLevel"[],
   "status" "TrainingStatus" NOT NULL DEFAULT 'PENDING',
   "duration" INTEGER NOT NULL DEFAULT 0,
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -45,6 +40,11 @@ CREATE TABLE "TrainingCourse" (
   FOREIGN KEY ("instructorId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
 
+-- Add training relationships to User table (after TrainingCourse is created)
+ALTER TABLE "User" ADD COLUMN "trainingCoursesAsInstructorId" TEXT;
+ALTER TABLE "User" ADD CONSTRAINT "User_trainingCoursesAsInstructorId_fkey" 
+  FOREIGN KEY ("trainingCoursesAsInstructorId") REFERENCES "TrainingCourse"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
 -- TrainingSchedule Table
 CREATE TABLE "TrainingSchedule" (
   "id" TEXT NOT NULL PRIMARY KEY,
@@ -60,6 +60,22 @@ CREATE TABLE "TrainingSchedule" (
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY ("courseId") REFERENCES "TrainingCourse"("id") ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+-- TrainingCertification Table (must be before EmployeeTraining)
+CREATE TABLE "TrainingCertification" (
+  "id" TEXT NOT NULL PRIMARY KEY,
+  "number" TEXT NOT NULL UNIQUE,
+  "programId" TEXT NOT NULL,
+  "employeeId" TEXT NOT NULL,
+  "certificateDate" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "renewalDate" TIMESTAMP(3),
+  "status" "CertificationStatus" NOT NULL DEFAULT 'VALID',
+  "notes" TEXT,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY ("programId") REFERENCES "TrainingProgram"("id") ON DELETE CASCADE ON UPDATE CASCADE,
+  FOREIGN KEY ("employeeId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 -- EmployeeTraining Table
@@ -78,22 +94,6 @@ CREATE TABLE "EmployeeTraining" (
   FOREIGN KEY ("employeeId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE,
   FOREIGN KEY ("scheduleId") REFERENCES "TrainingSchedule"("id") ON DELETE CASCADE ON UPDATE CASCADE,
   FOREIGN KEY ("certificationId") REFERENCES "TrainingCertification"("id") ON DELETE SET NULL ON UPDATE CASCADE
-);
-
--- TrainingCertification Table
-CREATE TABLE "TrainingCertification" (
-  "id" TEXT NOT NULL PRIMARY KEY,
-  "number" TEXT NOT NULL UNIQUE,
-  "programId" TEXT NOT NULL,
-  "employeeId" TEXT NOT NULL,
-  "certificateDate" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  "renewalDate" TIMESTAMP(3),
-  "status" "CertificationStatus" NOT NULL DEFAULT 'VALID',
-  "notes" TEXT,
-  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY ("programId") REFERENCES "TrainingProgram"("id") ON DELETE CASCADE ON UPDATE CASCADE,
-  FOREIGN KEY ("employeeId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 -- Create indexes for performance

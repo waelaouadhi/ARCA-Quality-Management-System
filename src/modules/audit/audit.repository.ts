@@ -1,7 +1,5 @@
-import { PrismaClient } from '@prisma/client';
+import prisma from '@/config/database';
 import { PaginationInput } from '@/shared/utils/pagination';
-
-const prisma = new PrismaClient();
 
 export class AuditRepository {
   async createAudit(data: any) {
@@ -50,9 +48,8 @@ export class AuditRepository {
   async countByYear(year: number) {
     return prisma.audit.count({
       where: {
-        createdAt: {
-          gte: new Date(`${year}-01-01`),
-          lt: new Date(`${year + 1}-01-01`),
+        auditNumber: {
+          startsWith: `AUDIT-${year}-`,
         },
       },
     });
@@ -76,6 +73,12 @@ export class AuditRepository {
     });
   }
 
+  async getFindingById(id: string) {
+    return prisma.auditFinding.findUnique({
+      where: { id },
+    });
+  }
+
   async getTemplates() {
     return prisma.auditTemplate.findMany({
       include: { questions: true },
@@ -92,5 +95,14 @@ export class AuditRepository {
 
   async createTemplate(data: any) {
     return prisma.auditTemplate.create({ data });
+  }
+
+  async createTemplateQuestion(data: {
+    templateId: string;
+    questionNumber: number;
+    question: string;
+    category?: string;
+  }) {
+    return prisma.auditQuestion.create({ data });
   }
 }

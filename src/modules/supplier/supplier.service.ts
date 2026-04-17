@@ -330,10 +330,29 @@ export class SupplierService {
     // Auto-create CAPA for CRITICAL or HIGH severity
     if (['CRITICAL', 'HIGH'].includes(input.severity)) {
       try {
-        const capa = await prisma.correctiveAction.create({
+        const userRecord = await prisma.user.findUnique({
+          where: { id: user.userId },
+          select: { id: true },
+        });
+
+        if (!userRecord) {
+          return issue;
+        }
+
+        const nc = await prisma.nonConformance.create({
+          data: {
+            title: `NC from supplier issue: ${supplier.name}`,
+            description: input.description,
+            severity: input.severity === 'CRITICAL' ? 'CRITICAL' : 'HIGH',
+            status: 'OPEN',
+            reportedById: user.userId,
+          },
+        });
+
+        await prisma.correctiveAction.create({
           data: {
             action: `Address supplier issue from ${supplier.name}: ${input.description}`,
-            nonConformanceId: '', // Will need to link to NC or create a placeholder
+            nonConformanceId: nc.id,
             supplierIssueId: issue.id,
           },
         });

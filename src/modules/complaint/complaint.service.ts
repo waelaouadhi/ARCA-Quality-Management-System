@@ -132,10 +132,20 @@ export class ComplaintService {
     // Auto-create CAPA for CRITICAL/HIGH severity
     if (['CRITICAL', 'HIGH'].includes(complaint.severity)) {
       try {
-        const capa = await prisma.correctiveAction.create({
+        const nc = await prisma.nonConformance.create({
+          data: {
+            title: `NC from Complaint ${complaint.complaintNumber}`,
+            description: complaint.description,
+            severity: complaint.severity === 'CRITICAL' ? 'CRITICAL' : 'HIGH',
+            status: 'OPEN',
+            reportedById: user.userId,
+          },
+        });
+
+        await prisma.correctiveAction.create({
           data: {
             action: `Address complaint ${complaint.complaintNumber}: ${complaint.title}`,
-            nonConformanceId: '', // Link to NC or use placeholder
+            nonConformanceId: nc.id,
             complaintId,
           },
         });
