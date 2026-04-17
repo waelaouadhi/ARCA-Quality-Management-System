@@ -1,0 +1,1635 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+//
+// =======================
+// ENUMS
+// =======================
+//
+
+enum Role {
+  ADMIN
+  MANAGER
+  USER
+}
+
+enum DocStatus {
+  DRAFT
+  REVIEW
+  APPROVED
+  ARCHIVED
+}
+
+enum Severity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum NCStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum ActionStatus {
+  PENDING
+  IN_PROGRESS
+  DONE
+}
+
+enum RequestStatus {
+  PENDING
+  ACCEPTED
+  PLANNED
+  REJECTED
+}
+
+enum DashboardMetricType {
+  COUNT
+  PERCENTAGE
+  TREND
+  RATIO
+}
+
+enum EscalationLevel {
+  NONE
+  LEVEL_1
+  LEVEL_2
+  LEVEL_3
+}
+
+enum EscalationStatus {
+  NONE
+  ACTIVE
+  RESOLVED
+  PAUSED
+}
+
+enum NotificationChannel {
+  EMAIL
+  IN_APP
+  WEBSOCKET
+  SMS
+  SLACK
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+  RETRYING
+}
+
+enum TrainingStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum TrainingType {
+  MANDATORY
+  OPTIONAL
+  COMPLIANCE
+  TECHNICAL
+  SOFT_SKILLS
+}
+
+enum CertificationStatus {
+  VALID
+  EXPIRED
+  PENDING_RENEWAL
+  REVOKED
+}
+
+//
+// =======================
+// USER MODULE
+// =======================
+//
+
+model User {
+  id        String @id @default(cuid())
+  email     String @unique
+  password  String
+  firstName String
+  lastName  String
+  role      Role   @default(USER)
+
+  documents               Document[]
+  audits                  AuditLog[]
+  reportedNonConformances NonConformance[]   @relation("ReportedBy")
+  assignedActions         CorrectiveAction[] @relation("AssignedTo")
+
+  // Phase 1: RBAC relations
+  userPermissions UserPermission[]
+
+  // Phase 3: Audit and Risk relations
+  auditsCreated Audit[] @relation("AuditCreatedBy")
+  risksCreated  Risk[]  @relation("RiskCreatedBy")
+  risksOwned    Risk[]  @relation("RiskOwner")
+  riskAssessments RiskAssessment[]
+
+  // Phase 3 Step 6: Admin relations
+  workflowsSeeded WorkflowSeed[] @relation("WorkflowSeededBy")
+
+  // Phase 4 Step 3: Training relations
+  trainingCoursesAsInstructor TrainingCourse[] @relation("TrainingCourseInstructor")
+  trainingEnrollments EmployeeTraining[] @relation("EmployeeTraining")
+  trainingCertifications TrainingCertification[] @relation("EmployeeTrainingCertification")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+//
+// =======================
+// DOCUMENT CONTROL MODULE
+// =======================
+//
+
+model Document {
+  id      String    @id @default(cuid())
+  title   String
+  content String?
+  version Int       @default(1)
+  status  DocStatus @default(DRAFT)
+
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+//
+// =======================
+// NON CONFORMANCE MODULE
+// =======================
+//
+
+model NonConformance {
+  id          String    @id @default(cuid())
+  title       String
+  description String
+  severity    Severity  @default(MEDIUM)
+  status      NCStatus  @default(OPEN)
+  dueDate     DateTime?
+
+  reportedById String
+  reportedBy   User   @relation("ReportedBy", fields: [reportedById], references: [id])
+
+  correctiveActions CorrectiveAction[]
+  escalation        NonConformanceEscalation?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([severity])
+  @@index([status])
+  @@index([dueDate])
+}
+
+//
+// =======================
+// CORRECTIVE ACTION MODULE
+// =======================
+//
+
+model CorrectiveAction {
+  id     String       @id @default(cuid())
+  action String
+  status ActionStatus @default(PENDING)
+
+  nonConformanceId String
+  nonConformance   NonConformance @relation(fields: [nonConformanceId], references: [id])
+
+  assignedToId String?
+  assignedTo   User?   @relation("AssignedTo", fields: [assignedToId], references: [id])
+
+  dueDate    DateTime?
+  escalation CorrectiveActionEscalation?
+
+  // Phase 1 Enhancement: 2-stage CAPA workflow
+  capaNumber          String? // Unique CAPA identifier (e.g., "CAPA-2024-001")
+  requestStatus       RequestStatus? // Request approval stage (PENDING → ACCEPTED → PLANNED)
+  rootCauseAnalysis   String? // Required before action can proceed
+  rootCauseAnalyzedAt DateTime? // When RCA was completed
+  rootCauseAnalyzedBy String? // User ID who analyzed root cause
+  completedAt         DateTime? // When action was completed
+  completedBy         String? // User ID who completed
+  verifiedAt          DateTime? // When action was verified
+  verifiedBy          String? // User ID who verified
+  verificationNotes   String? // Notes from verification
+
+  // Phase 3 Enhancement: Audit finding linking
+  auditFindingId String?
+  auditFinding   AuditFinding? @relation("FindingToCAPA", fields: [auditFindingId], references: [id])
+
+  // Phase 4 Enhancement: Supplier issue linking
+  supplierIssueId String?
+  supplierIssue   SupplierIssue? @relation("IssueToCAPAPhase4", fields: [supplierIssueId], references: [id])
+
+  // Phase 4 Step 2: Complaint linking
+  complaintId String?
+  complaint   Complaint? @relation("ComplaintToCAPAPhase4", fields: [complaintId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([capaNumber])
+  @@index([status])
+  @@index([requestStatus])
+  @@index([dueDate])
+  @@index([assignedToId])
+  @@index([capaNumber])
+  @@index([auditFindingId])
+}
+
+//
+// =======================
+// AUDIT LOG MODULE
+// =======================
+//
+
+model AuditLog {
+  id String @id @default(cuid())
+
+  action   String
+  entity   String
+  entityId String
+
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
+//
+// =======================
+// ESCALATION MODULE
+// =======================
+//
+
+/**
+ * SLA Rules for escalation timing
+ * Database-driven configuration
+ */
+model SLARule {
+  id String @id @default(cuid())
+
+  // Rule identification
+  name        String  @unique
+  description String?
+
+  // Scope
+  severity     Severity
+  departmentId String? // Optional: for department-specific SLAs
+
+  // Escalation config
+  escalationLevels EscalationLevel[] @default([LEVEL_1, LEVEL_2, LEVEL_3])
+
+  // Timing (in hours)
+  level1DelayHours Int @default(0) // Immediate to Level 1
+  level2DelayHours Int @default(24) // Level 2 after X hours
+  level3DelayHours Int @default(48) // Level 3 after Y hours
+
+  // Recipients
+  level1Recipients String[] @default([]) // Assigned user + manager
+  level2Recipients String[] @default([]) // Manager + admin
+  level3Recipients String[] @default([]) // Admin only
+
+  // Notification config
+  notifyChannels NotificationChannel[] @default([EMAIL, IN_APP])
+
+  // Relations
+  ncEscalations NonConformanceEscalation[]
+  caEscalations CorrectiveActionEscalation[]
+
+  // Status
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([severity])
+  @@index([departmentId])
+  @@index([isActive])
+}
+
+/**
+ * Escalation state for NonConformance
+ */
+model NonConformanceEscalation {
+  id String @id @default(cuid())
+
+  nonConformanceId String         @unique
+  nonConformance   NonConformance @relation(fields: [nonConformanceId], references: [id], onDelete: Cascade)
+
+  // Current escalation state
+  currentLevel     EscalationLevel  @default(NONE)
+  escalationStatus EscalationStatus @default(NONE)
+
+  // Timing
+  isOverdue        Boolean   @default(false)
+  overdueAt        DateTime?
+  lastEscalatedAt  DateTime?
+  nextEscalationAt DateTime?
+
+  // SLA reference
+  appliedSLARuleId String?
+  appliedSLARule   SLARule? @relation(fields: [appliedSLARuleId], references: [id])
+
+  // Escalation chain tracking
+  level1NotifiedAt DateTime?
+  level2NotifiedAt DateTime?
+  level3NotifiedAt DateTime?
+
+  // Acknowledgment tracking
+  acknowledgedAt DateTime?
+  acknowledgedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  escalationHistory EscalationHistory[]
+
+  @@index([nonConformanceId])
+  @@index([escalationStatus])
+  @@index([isOverdue])
+  @@index([nextEscalationAt])
+}
+
+/**
+ * Escalation state for CorrectiveAction
+ */
+model CorrectiveActionEscalation {
+  id String @id @default(cuid())
+
+  correctiveActionId String           @unique
+  correctiveAction   CorrectiveAction @relation(fields: [correctiveActionId], references: [id], onDelete: Cascade)
+
+  // Current escalation state
+  currentLevel     EscalationLevel  @default(NONE)
+  escalationStatus EscalationStatus @default(NONE)
+
+  // Timing
+  isOverdue        Boolean   @default(false)
+  overdueAt        DateTime?
+  lastEscalatedAt  DateTime?
+  nextEscalationAt DateTime?
+
+  // SLA reference
+  appliedSLARuleId String?
+  appliedSLARule   SLARule? @relation(fields: [appliedSLARuleId], references: [id])
+
+  // Escalation chain tracking
+  level1NotifiedAt DateTime?
+  level2NotifiedAt DateTime?
+  level3NotifiedAt DateTime?
+
+  // Acknowledgment tracking
+  acknowledgedAt DateTime?
+  acknowledgedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  escalationHistory EscalationHistory[]
+
+  @@index([correctiveActionId])
+  @@index([escalationStatus])
+  @@index([isOverdue])
+  @@index([nextEscalationAt])
+}
+
+/**
+ * Audit trail for all escalation events
+ */
+model EscalationHistory {
+  id String @id @default(cuid())
+
+  // Escalation context
+  ncEscalationId String?
+  ncEscalation   NonConformanceEscalation? @relation(fields: [ncEscalationId], references: [id], onDelete: Cascade)
+
+  caEscalationId String?
+  caEscalation   CorrectiveActionEscalation? @relation(fields: [caEscalationId], references: [id], onDelete: Cascade)
+
+  // Event details
+  eventType       String // e.g., "OVERDUE_DETECTED", "ESCALATED_TO_LEVEL_2", "ACKNOWLEDGED"
+  escalationLevel EscalationLevel
+  reason          String?
+
+  // Who triggered this
+  triggeredBy String? // system, user email, etc.
+
+  // Notification details
+  notificationsId String[] @default([]) // References to Notification records
+
+  createdAt DateTime @default(now())
+
+  @@index([ncEscalationId])
+  @@index([caEscalationId])
+  @@index([eventType])
+  @@index([createdAt])
+}
+
+/**
+ * Notification record for audit and retry tracking
+ */
+model Notification {
+  id String @id @default(cuid())
+
+  // Notification details
+  entityType      String // "NonConformance" or "CorrectiveAction"
+  entityId        String
+  escalationLevel EscalationLevel
+
+  // Recipient
+  recipientEmail  String?
+  recipientUserId String?
+
+  // Channels
+  channels        NotificationChannel[]
+  channelStatuses String                @default("{}") // JSON: { "EMAIL": "SENT", "IN_APP": "PENDING" }
+
+  // Retry tracking
+  status        NotificationStatus @default(PENDING)
+  retryCount    Int                @default(0)
+  maxRetries    Int                @default(3)
+  lastRetryAt   DateTime?
+  nextRetryAt   DateTime?
+  failureReason String?
+
+  // Idempotency
+  idempotencyKey String @unique
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  sentAt    DateTime?
+
+  @@index([entityType, entityId])
+  @@index([status])
+  @@index([nextRetryAt])
+  @@index([idempotencyKey])
+}
+
+//
+// =======================
+// RBAC MODULE (PHASE 1)
+// =======================
+//
+
+/**
+ * Fine-grained permission definitions
+ * Format: "resource:action" (e.g., "document:approve", "nonConformance:assign")
+ */
+model Permission {
+  id String @id @default(cuid())
+
+  // Permission identifier
+  resource String // e.g., "document", "nonConformance"
+  action   String // e.g., "create", "approve", "assign"
+
+  // Description for UI
+  name        String  @unique // e.g., "document:approve"
+  description String?
+
+  // Category for grouping in UI
+  category String @default("general") // "core", "workflow", "admin", "reporting"
+
+  // Status
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  rolePermissions RolePermission[]
+  userPermissions UserPermission[]
+
+  @@unique([resource, action])
+  @@index([resource])
+  @@index([isActive])
+}
+
+/**
+ * Role-to-Permission mapping
+ * Defines what permissions each role has by default
+ */
+model RolePermission {
+  id String @id @default(cuid())
+
+  // Role association
+  role Role // ADMIN, MANAGER, USER
+
+  // Permission reference
+  permissionId String
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([role, permissionId])
+  @@index([role])
+}
+
+/**
+ * User-specific permission overrides
+ * Allows granting/denying specific permissions to users beyond their role
+ */
+model UserPermission {
+  id String @id @default(cuid())
+
+  // User association
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Permission reference
+  permissionId String
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  // Grant or deny
+  granted Boolean @default(true) // true=grant, false=deny (deny overrides role permissions)
+
+  // Reason/context
+  reason    String?
+  grantedBy String? // admin user ID
+  grantedAt DateTime  @default(now())
+  expiresAt DateTime? // Permission can expire
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, permissionId])
+  @@index([userId])
+  @@index([granted])
+}
+
+//
+// =======================
+// DASHBOARD MODULE (PHASE 1)
+// =======================
+//
+
+/**
+ * Pre-computed dashboard metrics
+ * Updated by background jobs for performance
+ */
+model DashboardMetric {
+  id String @id @default(cuid())
+
+  // Metric identification
+  metricType DashboardMetricType
+  metricKey  String // e.g., "nc_open_count", "ca_overdue_percentage"
+  name       String // e.g., "Open Non-Conformances"
+
+  // Time period
+  periodStartDate DateTime
+  periodEndDate   DateTime
+
+  // Values
+  value         Float
+  previousValue Float? // For trending
+  target        Float? // KPI target
+
+  // Breakdown (optional JSON)
+  breakdown String? // JSON: { "by_severity": {...}, "by_department": {...} }
+
+  // Refresh tracking
+  lastComputedAt  DateTime @default(now())
+  refreshInterval Int      @default(3600) // seconds
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([metricKey, periodStartDate, periodEndDate])
+  @@index([metricType])
+  @@index([lastComputedAt])
+}
+
+//
+// =======================
+// WORKFLOW ENGINE (PHASE 2)
+// =======================
+//
+
+/**
+ * Workflow definition - configurable state machine
+ * Stores workflow configurations as JSON
+ * Example: Document approval workflow, NC lifecycle, etc.
+ */
+model Workflow {
+  id String @id @default(cuid())
+
+  // Identification
+  name        String  @unique // e.g., "document_approval", "nc_lifecycle"
+  description String?
+  version     Int     @default(1)
+  moduleType  String // e.g., "Document", "NonConformance", "CorrectiveAction"
+
+  // Configuration
+  config String // JSON: { steps: [...], transitions: [...], conditions: [...] }
+
+  // Status
+  isActive Boolean @default(true)
+
+  // Audit
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  updatedBy String?
+
+  // Relations
+  instances           WorkflowInstance[]
+  workflowSteps       WorkflowStep[]
+  workflowTransitions WorkflowTransition[]
+
+  @@index([moduleType])
+  @@index([isActive])
+  @@index([createdAt])
+}
+
+/**
+ * Workflow step definition
+ * Each step is a state in the workflow state machine
+ */
+model WorkflowStep {
+  id String @id @default(cuid())
+
+  // Identification
+  workflowId String
+  name       String // e.g., "PENDING", "APPROVED", "REJECTED"
+  stepOrder  Int // Position in workflow
+
+  // Step properties
+  type             String // "state", "decision", "action"
+  allowParallel    Boolean @default(false)
+  requiresApproval Boolean @default(false)
+  approverRole     String? // "MANAGER", "ADMIN", null = auto
+
+  // Validation
+  conditions String? // JSON: array of condition expressions
+
+  // Notifications
+  notifyOnEntry String? // JSON: list of notifications to send
+  notifyOnExit  String?
+
+  // Timeout
+  timeoutDays Int?
+
+  // Audit
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  workflow            Workflow             @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  outgoingTransitions WorkflowTransition[] @relation("from_step")
+  incomingTransitions WorkflowTransition[] @relation("to_step")
+  workflowInstances   WorkflowInstance[]
+
+  @@unique([workflowId, name])
+  @@index([workflowId])
+  @@index([stepOrder])
+}
+
+/**
+ * Workflow transition definition
+ * Defines valid state transitions and their conditions
+ */
+model WorkflowTransition {
+  id String @id @default(cuid())
+
+  // Identification
+  workflowId String
+
+  // Transition
+  fromStepId String
+  toStepId   String
+
+  // Conditions for transition
+  conditions String? // JSON: { operator: "AND"|"OR", rules: [...] }
+
+  // Trigger
+  triggerType  String // "automatic", "manual", "conditional"
+  triggerEvent String? // e.g., "document_submitted", "approval_granted"
+
+  // Audit trail requirement
+  requireComment Boolean @default(false)
+
+  // Ordering (for UI presentation)
+  displayOrder Int @default(0)
+
+  // Audit
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  workflow Workflow                @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  fromStep WorkflowStep            @relation("from_step", fields: [fromStepId], references: [id], onDelete: Restrict)
+  toStep   WorkflowStep            @relation("to_step", fields: [toStepId], references: [id], onDelete: Restrict)
+  events   WorkflowInstanceEvent[]
+
+  @@unique([fromStepId, toStepId, workflowId])
+  @@index([workflowId])
+  @@index([fromStepId])
+  @@index([toStepId])
+}
+
+/**
+ * Workflow instance - active workflow run
+ * Tracks the execution of a workflow on a specific resource
+ * Linked to Document, NonConformance, CorrectiveAction, etc.
+ */
+model WorkflowInstance {
+  id String @id @default(cuid())
+
+  // Identification
+  workflowId   String
+  resourceType String // "Document", "NonConformance", "CorrectiveAction"
+  resourceId   String // ID of the resource this workflow is running on
+
+  // Current state
+  currentStepId String?
+  status        String  @default("ACTIVE") // "ACTIVE", "COMPLETED", "PAUSED", "CANCELLED"
+
+  // Timeline
+  startedAt   DateTime  @default(now())
+  startedBy   String
+  completedAt DateTime?
+  completedBy String?
+
+  // Timing
+  timeoutAt DateTime? // When this workflow times out if incomplete
+
+  // Metadata
+  contextData String? // JSON: additional context/data for this workflow run
+
+  // Audit
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  workflow    Workflow                @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  currentStep WorkflowStep?           @relation(fields: [currentStepId], references: [id], onDelete: SetNull)
+  events      WorkflowInstanceEvent[]
+
+  @@unique([workflowId, resourceType, resourceId]) // One active workflow per resource
+  @@index([workflowId])
+  @@index([resourceType])
+  @@index([resourceId])
+  @@index([status])
+  @@index([startedAt])
+}
+
+/**
+ * Workflow instance event - audit trail
+ * Records every transition and action taken in a workflow
+ */
+model WorkflowInstanceEvent {
+  id String @id @default(cuid())
+
+  // Identification
+  instanceId   String
+  transitionId String?
+
+  // Event details
+  eventType String // "transitioned", "commented", "approved", "rejected", "paused", "resumed", "cancelled"
+  fromStep  String? // Previous step name
+  toStep    String? // New step name
+
+  // Who performed it
+  performedBy String
+  performedAt DateTime @default(now())
+
+  // Additional data
+  comment  String?
+  metadata String? // JSON: any additional event data (approver role, rejection reason, etc.)
+
+  // Audit
+  createdAt DateTime @default(now())
+
+  // Relations
+  instance   WorkflowInstance    @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  transition WorkflowTransition? @relation(fields: [transitionId], references: [id], onDelete: SetNull)
+
+  @@index([instanceId])
+  @@index([transitionId])
+  @@index([performedBy])
+  @@index([performedAt])
+  @@index([eventType])
+}
+
+/**
+ * PHASE 3: AUDIT MODULE
+ * Audit management for compliance tracking
+ */
+
+model Audit {
+  id String @id @default(cuid())
+
+  // Identification
+  auditNumber String   @unique // Sequential: AUDIT-2026-001
+  title       String
+  description String?
+
+  // Audit Properties
+  auditType  String // "internal", "external", "supplier"
+  auditScope String // What's being audited
+  auditDate  DateTime
+  status     String @default("SCHEDULED") // SCHEDULED, IN_PROGRESS, COMPLETED, CLOSED
+
+  // Teams
+  auditTeamIds String? // JSON array of user IDs
+
+  // Template (optional)
+  templateId String?
+  template   AuditTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+
+  // Findings
+  findings AuditFinding[]
+
+  // Phase 3 Step 5: Risk linking (audit can assess risks)
+  assessedRisks Risk[] @relation("AuditAssessedRisks")
+
+  // Workflow
+  workflowInstanceId String?
+
+  // Audit
+  createdById String
+  createdBy   User   @relation("AuditCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  completedAt DateTime?
+
+  @@index([status])
+  @@index([auditDate])
+  @@index([createdById])
+  @@index([auditType])
+}
+
+model AuditTemplate {
+  id String @id @default(cuid())
+
+  // Identification
+  name        String @unique
+  description String?
+
+  // Template
+  questions AuditQuestion[]
+  audits    Audit[]
+
+  // Phase 3 Step 6: Admin tracking
+  usageCount    Int @default(0)  // Auto-increment when audit uses this template
+  isArchived    Boolean @default(false)
+  archivedAt    DateTime?
+  archivedBy    String?
+
+  // Audit
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([name])
+  @@index([isArchived])
+}
+
+model AuditQuestion {
+  id String @id @default(cuid())
+
+  // Relationship
+  templateId String
+  template   AuditTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  // Question
+  questionNumber Int
+  question       String
+  category       String? // Process, Product, System, etc.
+
+  // Audit
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([templateId, questionNumber])
+  @@index([templateId])
+}
+
+model AuditFinding {
+  id String @id @default(cuid())
+
+  // Relationship
+  auditId String
+  audit   Audit @relation(fields: [auditId], references: [id], onDelete: Cascade)
+
+  // Finding
+  findingNumber Int
+  description   String
+  severity      Severity // LOW, MEDIUM, HIGH, CRITICAL
+  category      String?  // Process, Product, System, etc.
+  status        String @default("OPEN") // OPEN, INVESTIGATION, RESOLVED, CLOSED
+
+  // CAPA Link
+  linkedCapaId  String?
+  capaAutoCreated Boolean @default(false)
+  linkedCapas   CorrectiveAction[] @relation("FindingToCAPA")
+
+  // Timeline
+  dueDate    DateTime?
+  resolvedAt DateTime?
+
+  // Audit
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([auditId, findingNumber])
+  @@index([auditId])
+  @@index([severity])
+  @@index([status])
+}
+
+/**
+ * PHASE 3: RISK MODULE
+ * Risk management and control tracking
+ */
+
+model Risk {
+  id String @id @default(cuid())
+
+  // Identification
+  riskNumber String @unique // Sequential: RISK-2026-001
+  title      String
+  description String?
+
+  // Risk Properties
+  riskType    String // "operational", "compliance", "strategic", "financial"
+  process     String // Which process/area is at risk
+  status      String @default("IDENTIFIED") // IDENTIFIED, ASSESSED, CONTROLLED, MITIGATED, ACCEPTED
+
+  // Initial Assessment
+  inherentProbability Int @default(1) // 1-5 scale
+  inherentImpact      Int @default(1) // 1-5 scale
+  inherentRisk        Int? // Calculated: probability * impact
+
+  // Post-Control Assessment
+  residualProbability Int? // 1-5 scale (after controls)
+  residualImpact      Int? // 1-5 scale (after controls)
+  residualRisk        Int? // Calculated: probability * impact
+
+  // Risk Owner
+  ownerId String?
+  owner   User? @relation("RiskOwner", fields: [ownerId], references: [id])
+
+  // Controls
+  controls RiskControl[]
+
+  // Assessments
+  assessments RiskAssessment[]
+
+  // Phase 3 Step 5: Audit linking (source audit for this risk)
+  sourceAuditIds String? // JSON array of audit IDs that identified this risk
+  auditsAssessing Audit[] @relation("AuditAssessedRisks")
+
+  // Workflow
+  workflowInstanceId String?
+
+  // Phase 4: Supplier linking
+  linkedSuppliers Supplier[] @relation("SupplierRisks")
+  supplierRiskScore Float?  // Risk score specific to supplier source
+
+  // Phase 4 Step 2: Complaint linking
+  linkedComplaints Complaint[] @relation("ComplaintRisks")
+  complaintRiskScore Float?  // Risk score from complaints
+
+  // Audit
+  createdById String
+  createdBy   User   @relation("RiskCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([status])
+  @@index([riskType])
+  @@index([createdById])
+  @@index([ownerId])
+}
+
+model RiskControl {
+  id String @id @default(cuid())
+
+  // Relationship
+  riskId String
+  risk   Risk @relation(fields: [riskId], references: [id], onDelete: Cascade)
+
+  // Control
+  controlName String
+  description String?
+  controlType String // "preventive", "detective", "corrective"
+  status      String @default("DESIGNED") // DESIGNED, IMPLEMENTED, TESTED, EFFECTIVE, INEFFECTIVE
+
+  // Effectiveness
+  effectivenessRating Int? // 1-5 scale
+  lastTestedDate      DateTime?
+  testResults         String? // JSON: test evidence
+
+  // Audit
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([riskId])
+  @@index([status])
+  @@index([controlType])
+}
+
+model RiskAssessment {
+  id String @id @default(cuid())
+
+  // Relationship
+  riskId String
+  risk   Risk @relation(fields: [riskId], references: [id], onDelete: Cascade)
+
+  // Assessment
+  assessmentDate DateTime
+  assessorId     String
+  assessor       User @relation(fields: [assessorId], references: [id])
+
+  // Findings
+  probability Int
+  impact      Int
+  overallRisk Int // probability * impact
+  notes       String?
+
+  // Audit
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([riskId])
+  @@index([assessorId])
+  @@index([assessmentDate])
+}
+
+// ============================================================================
+// PHASE 3 STEP 6: ADMIN & METRICS
+// ============================================================================
+
+model WorkflowSeed {
+  id          String @id @default(cuid())
+  name        String @unique  // "audit_lifecycle", "risk_lifecycle"
+  description String
+  
+  // Reference to Workflow (for tracking which workflows are seeded)
+  workflowId  String?
+  
+  // Seeding metadata
+  seededAt    DateTime @default(now())
+  seededById  String
+  seededBy    User @relation("WorkflowSeededBy", fields: [seededById], references: [id])
+  
+  // For tracking step counts
+  stepCount   Int @default(0)
+  transitionCount Int @default(0)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([name])
+  @@index([seededById])
+}
+
+model AuditMetrics {
+  id              String   @id @default(cuid())
+  period          String   // "daily", "weekly", "monthly"
+  periodStart     DateTime
+  periodEnd       DateTime
+  
+  // Audit metrics
+  totalAudits     Int @default(0)
+  completedAudits Int @default(0)
+  avgFindingsSeverity String?  // "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"
+  criticalFindingsCount Int @default(0)
+  highFindingsCount Int @default(0)
+  
+  // CAPA metrics (from findings)
+  capaTriggeredCount Int @default(0)  // CAPAs auto-created from findings
+  capaCompletedCount Int @default(0)
+  
+  // Metadata
+  computedAt      DateTime @default(now())
+  computedBy      String?  // SYSTEM or user ID
+  
+  @@unique([period, periodStart, periodEnd])
+  @@index([periodStart])
+  @@index([period])
+}
+
+model RiskMetrics {
+  id              String   @id @default(cuid())
+  period          String   // "daily", "weekly", "monthly"
+  periodStart     DateTime
+  periodEnd       DateTime
+  
+  // Risk metrics
+  totalRisks      Int @default(0)
+  identifiedRisks Int @default(0)
+  assessedRisks   Int @default(0)
+  controlledRisks Int @default(0)
+  mitigatedRisks  Int @default(0)
+  
+  // Risk scoring
+  avgInherentRisk Float @default(0)  // Average of all inherent risks
+  avgResidualRisk Float @default(0)  // Average of all residual risks
+  criticalRisksCount Int @default(0)  // inherentRisk >= 20 (5*4)
+  highRisksCount  Int @default(0)     // inherentRisk >= 12 (3*4)
+  
+  // Metadata
+  computedAt      DateTime @default(now())
+  computedBy      String?  // SYSTEM or user ID
+  
+  @@unique([period, periodStart, periodEnd])
+  @@index([periodStart])
+  @@index([period])
+}
+
+model SystemHealthCheck {
+  id              String   @id @default(cuid())
+  
+  // Database connectivity
+  databaseConnected Boolean @default(false)
+  databaseError   String?
+  
+  // Tables check
+  auditTableExists Boolean @default(false)
+  riskTableExists  Boolean @default(false)
+  workflowTableExists Boolean @default(false)
+  
+  // Workflows check
+  auditLifecycleExists Boolean @default(false)
+  riskLifecycleExists  Boolean @default(false)
+  
+  // Counts
+  auditCount      Int @default(0)
+  riskCount       Int @default(0)
+  capaCount       Int @default(0)
+  userCount       Int @default(0)
+  
+  // Last backup (informational)
+  lastBackupTime  DateTime?
+  
+  // Metadata
+  checkedAt       DateTime @default(now())
+  checkedBy       String?
+  
+  @@index([checkedAt])
+}
+
+// ============================================================================
+// PHASE 4 STEP 1: SUPPLIER MODULE
+// ============================================================================
+
+model Supplier {
+  id              String @id @default(cuid())
+  supplierNumber  String @unique  // SUPP-2026-00001
+
+  // Basic info
+  name            String
+  description     String?
+  category        String  // Electronics, Chemicals, Services, etc.
+  status          String @default("ACTIVE")  // ACTIVE, INACTIVE, SUSPENDED, APPROVED
+
+  // Contact info
+  primaryContact  String?  // Email
+  website         String?
+
+  // Ratings & Performance
+  ratingScore     Float @default(5.0)  // 1-5 scale
+  complianceScore Float @default(0)    // 0-100
+  lastAuditDate   DateTime?
+  lastAuditScore  Float?
+
+  // Relationships
+  contacts        SupplierContact[]
+  audits          SupplierAudit[]
+  evaluations     SupplierEvaluation[]
+  issues          SupplierIssue[]
+  linkedRisks     Risk[] @relation("SupplierRisks")
+
+  // Audit
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([status])
+  @@index([category])
+  @@index([ratingScore])
+}
+
+model SupplierContact {
+  id          String @id @default(cuid())
+  supplierId  String
+  supplier    Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  name        String
+  role        String  // Procurement, Quality, Technical
+  email       String
+  phone       String?
+
+  createdAt   DateTime @default(now())
+
+  @@index([supplierId])
+}
+
+model SupplierAudit {
+  id          String @id @default(cuid())
+  supplierId  String
+  supplier    Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  auditNumber String @unique  // SUPP-AUDIT-2026-00001
+  auditDate   DateTime
+  auditType   String  // INITIAL, SURVEILLANCE, RE-CERTIFICATION
+  auditScore  Float    // 0-100
+  status      String @default("PLANNED")  // PLANNED, COMPLETED, PASSED, FAILED
+
+  findings    SupplierAuditFinding[]
+  issues      SupplierIssue[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([supplierId])
+  @@index([status])
+  @@index([auditDate])
+}
+
+model SupplierAuditFinding {
+  id          String @id @default(cuid())
+  auditId     String
+  audit       SupplierAudit @relation(fields: [auditId], references: [id], onDelete: Cascade)
+
+  severity    String  // LOW, MEDIUM, HIGH, CRITICAL
+  description String
+  evidence    String?
+
+  createdAt   DateTime @default(now())
+
+  @@index([auditId])
+  @@index([severity])
+}
+
+model SupplierEvaluation {
+  id              String @id @default(cuid())
+  supplierId      String
+  supplier        Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  evaluationDate  DateTime
+  qualityScore    Float  // 0-100
+  deliveryScore   Float  // 0-100
+  priceScore      Float  // 0-100
+  overallScore    Float  // Average of above
+
+  notes           String?
+
+  createdAt       DateTime @default(now())
+
+  @@index([supplierId])
+  @@index([evaluationDate])
+}
+
+model SupplierIssue {
+  id          String @id @default(cuid())
+  supplierId  String
+  supplier    Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  auditId     String?
+  audit       SupplierAudit? @relation(fields: [auditId], references: [id])
+
+  description String
+  severity    String  // LOW, MEDIUM, HIGH, CRITICAL
+  status      String @default("OPEN")  // OPEN, IN_REVIEW, RESOLVED, CLOSED
+
+  linkedCapas CorrectiveAction[] @relation("IssueToCAPAPhase4")  // Auto-created CAPAs
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([supplierId])
+  @@index([status])
+  @@index([severity])
+}
+
+// ============================================================================
+// PHASE 4 STEP 2: COMPLAINT MODULE
+// ============================================================================
+
+model Complaint {
+  id                String @id @default(cuid())
+  complaintNumber   String @unique  // CMPL-2026-00001
+
+  // Basic info
+  title             String
+  description       String
+  category          String  // Product Quality, Service, Delivery, Other
+  source            String  // Customer, Internal, Supplier, Regulatory
+  severity          String @default("MEDIUM")  // LOW, MEDIUM, HIGH, CRITICAL
+
+  // Status & dates
+  status            String @default("OPEN")  // OPEN, IN_REVIEW, INVESTIGATING, RESOLVED, CLOSED
+  reportedDate      DateTime
+  reportedBy        String?  // User ID or external name
+  receivedDate      DateTime @default(now())
+
+  // Customer/External info
+  customerName      String?
+  customerEmail     String?
+  customerPhone     String?
+
+  // Investigation
+  investigation     ComplaintInvestigation?
+  findings          String?  // Investigation findings
+  rootCause         String?  // Identified root cause
+  investigatedBy    String?  // User ID
+  investigatedAt    DateTime?
+
+  // Auto-triggers
+  riskAutoCreated   Boolean @default(false)
+  linkedRiskId      String?
+  linkedRisk        Risk? @relation("ComplaintRisks", fields: [linkedRiskId], references: [id])
+
+  capaAutoCreated   Boolean @default(false)
+  linkedCapas       CorrectiveAction[] @relation("ComplaintToCAPAPhase4")
+
+  // Attachments
+  attachments       ComplaintAttachment[]
+
+  // Audit
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([status])
+  @@index([severity])
+  @@index([category])
+  @@index([source])
+  @@index([linkedRiskId])
+}
+
+model ComplaintInvestigation {
+  id                String @id @default(cuid())
+  complaintId       String @unique
+  complaint         Complaint @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+
+  startDate         DateTime @default(now())
+  endDate           DateTime?
+  status            String @default("IN_PROGRESS")  // IN_PROGRESS, COMPLETED, PAUSED
+
+  investigator      String?  // User ID
+  methodology       String?  // Investigation methodology
+  findings          String?
+  recommendation    String?
+
+  // Severity-based tracking
+  immediateActions  String?  // Actions taken immediately
+  preventiveMeasures String?  // Long-term preventive measures
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([status])
+  @@index([complaintId])
+}
+
+model ComplaintAttachment {
+  id                String @id @default(cuid())
+  complaintId       String
+  complaint         Complaint @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+
+  filename          String
+  fileUrl           String
+  fileType          String  // application/pdf, image/png, etc.
+  fileSize          Int
+  uploadedBy        String?  // User ID
+  uploadedAt        DateTime @default(now())
+
+  description       String?
+
+  @@index([complaintId])
+}
+
+//
+// =======================
+// TRAINING MODULE (PHASE 4 STEP 3)
+// =======================
+//
+
+model TrainingProgram {
+  id                String @id @default(cuid())
+  programNumber     String @unique  // TRAIN-PROG-2026-00001
+
+  // Basic info
+  name              String
+  description       String
+  type              TrainingType @default(OPTIONAL)
+  
+  // Competencies
+  requiredCompetencies String[]  // Comma-separated or JSON array
+  
+  // Duration & scheduling
+  durationHours     Float
+  targetAudience    String?  // Role or department
+  
+  // Status
+  status            String @default("ACTIVE")  // ACTIVE, ARCHIVED, DISCONTINUED
+  isActive          Boolean @default(true)
+  
+  // Relationships
+  courses           TrainingCourse[]
+  schedules         TrainingSchedule[]
+  enrollments       EmployeeTraining[]  @relation("ProgramEnrollments")
+  certifications    TrainingCertification[] @relation("ProgramCertifications")
+  
+  // Tracking
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@index([status])
+  @@index([type])
+}
+
+model TrainingCourse {
+  id                String @id @default(cuid())
+  courseNumber      String @unique  // TRAIN-COURSE-2026-00001
+
+  // Basic info
+  name              String
+  description       String
+  content           String?  // Course content, curriculum
+  
+  // Duration
+  durationHours     Float
+  numberOfModules   Int @default(1)
+  
+  // Instructor
+  instructorId      String?  // User ID
+  instructor        User? @relation("TrainingCourseInstructor", fields: [instructorId], references: [id])
+  
+  // Program association
+  programId         String
+  program           TrainingProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
+  
+  // Competency
+  targetCompetency  String?
+  competencyLevel   String?  // BASIC, INTERMEDIATE, ADVANCED
+  
+  // Status
+  status            String @default("ACTIVE")  // ACTIVE, ARCHIVED, DISCONTINUED
+  isActive          Boolean @default(true)
+  
+  // Relationships
+  schedules         TrainingSchedule[]
+  enrollments       EmployeeTraining[]
+  
+  // Tracking
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@index([programId])
+  @@index([instructorId])
+  @@index([status])
+}
+
+model TrainingSchedule {
+  id                String @id @default(cuid())
+  scheduleNumber    String @unique  // TRAIN-SCHED-2026-00001
+
+  // Course & Program
+  courseId          String
+  course            TrainingCourse @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  
+  programId         String
+  program           TrainingProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
+  
+  // Scheduling
+  startDate         DateTime
+  endDate           DateTime
+  startTime         String?  // HH:MM format
+  endTime           String?  // HH:MM format
+  
+  // Location & delivery
+  location          String?  // Physical location or online
+  deliveryMethod    String @default("IN_PERSON")  // IN_PERSON, ONLINE, HYBRID
+  
+  // Capacity
+  maxParticipants   Int @default(30)
+  currentEnrollment Int @default(0)
+  
+  // Status
+  status            String @default("SCHEDULED")  // SCHEDULED, IN_PROGRESS, COMPLETED, CANCELLED
+  
+  // Relationships
+  enrollments       EmployeeTraining[]
+  
+  // Tracking
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@index([courseId])
+  @@index([programId])
+  @@index([startDate])
+  @@index([status])
+}
+
+model EmployeeTraining {
+  id                String @id @default(cuid())
+  enrollmentNumber  String @unique  // ENROLL-2026-00001
+
+  // Employee
+  employeeId        String
+  employee          User @relation("EmployeeTraining", fields: [employeeId], references: [id], onDelete: Cascade)
+  
+  // Training
+  scheduleId        String
+  schedule          TrainingSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  
+  courseId          String
+  course            TrainingCourse @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  
+  programId         String
+  program           TrainingProgram @relation("ProgramEnrollments", fields: [programId], references: [id], onDelete: Cascade)
+  
+  // Enrollment status
+  status            TrainingStatus @default(PENDING)
+  enrolledDate      DateTime @default(now())
+  completedDate     DateTime?
+  
+  // Performance
+  attendanceHours   Float @default(0)
+  score             Float?  // 0-100
+  gradeReceived     String?  // PASS, FAIL
+  feedback          String?
+  
+  // Certification
+  certificateUrl    String?
+  certificateIssuedDate DateTime?
+  
+  // Assignment tracking
+  assignedBy        String?  // User ID (MANAGER)
+  assignedDate      DateTime?
+  dueDate           DateTime?
+  
+  // Audit
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@unique([employeeId, scheduleId])
+  @@index([employeeId])
+  @@index([scheduleId])
+  @@index([courseId])
+  @@index([programId])
+  @@index([status])
+}
+
+model TrainingCertification {
+  id                String @id @default(cuid())
+  certNumber        String @unique  // CERT-2026-00001
+
+  // Employee
+  employeeId        String
+  employee          User @relation("EmployeeTrainingCertification", fields: [employeeId], references: [id], onDelete: Cascade)
+  
+  // Certification info
+  certificationName String  // e.g., "ISO 9001 Auditor", "Six Sigma Green Belt"
+  issuingBody       String?  // Certifying organization
+  certificationCode String?  // External cert code
+  
+  // Validity
+  issuedDate        DateTime
+  expiryDate        DateTime?
+  renewalDate       DateTime?
+  status            CertificationStatus @default(VALID)
+  
+  // Training program linked
+  programId         String?
+  program           TrainingProgram? @relation("ProgramCertifications", fields: [programId], references: [id])
+  
+  // Document
+  documentUrl       String?
+  documentType      String?  // PDF, etc.
+  
+  // Audit
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@index([employeeId])
+  @@index([status])
+  @@index([expiryDate])
+  @@index([programId])
+}
+
+// Update User model to support training relationships
+// Note: User model should have these additional relations:
+// trainingCoursesAsInstructor: TrainingCourse[] @relation("TrainingCourseInstructor")
+// trainingEnrollments: EmployeeTraining[] @relation("EmployeeTraining")
+// trainingCertifications: TrainingCertification[] @relation("EmployeeTrainingCertification")

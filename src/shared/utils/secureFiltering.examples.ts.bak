@@ -1,0 +1,391 @@
+/**
+ * SECURE DATA FILTERING - BAD vs GOOD EXAMPLES
+ * 
+ * This file demonstrates the dangers of post-fetch filtering vs 
+ * secure database-level filtering
+ */
+
+import { PrismaClient, NonConformance, CorrectiveAction } from '@prisma/client';
+import { JWTPayload } from './jwt';
+import { SecureFilters } from './secureFiltering';
+
+const prisma = new PrismaClient();
+
+/**
+ * ============================================================================
+ * ❌ BAD APPROACH: Fetch All Data, Filter in Application
+ * ============================================================================
+ * 
+ * RISKS:
+ * • Data leakage: Sensitive data transferred to app memory
+ * • Performance: Full table scan, then filter in app
+ * • Memory issues: Large result sets cause OOM
+ * • Audit: Hard to track what was accessed
+ * • Consistency: Filtering logic can be bypassed
+ */
+
+export class BadNonConformanceService {
+  async getNonConformances_UNSAFE(user: JWTPayload) {
+    // ❌ PROBLEM 1: Fetch ALL records from database
+    const allNCs = await prisma.nonConformance.findMany({
+      // No WHERE clause! Gets everything!
+    });
+
+    // ❌ PROBLEM 2: Filter in application layer
+    // At this point, sensitive data is already in memory
+    const filtered = allNCs.filter(nc => {
+      if (user.role === 'ADMIN') return true;
+      if (user.role === 'MANAGER') {
+        return nc.reportedById === user.userId || nc.departmentId === user.departmentId;
+      }
+      return nc.reportedById === user.userId || nc.assignedToId === user.userId;
+    });
+
+    return filtered;
+  }
+
+  // ❌ WORSE: No filtering at all!
+  async listAllNonConformances_EXTREMELY_UNSAFE(user: JWTPayload) {
+    const allNCs = await prisma.nonConformance.findMany();
+    return allNCs; // Returns ALL records regardless of user role!
+  }
+
+  // ❌ PROBLEM: Forgetting to filter in one place
+  async searchNonConformances_PARTIAL_UNSAFE(
+    user: JWTPayload,
+    query: string
+  ) {
+    // Developer forgot to add filtering logic here!
+    // This will return search results for records user shouldn't see
+    const results = await prisma.nonConformance.findMany({
+      where: {
+        title: { contains: query, mode: 'insensitive' },
+      },
+    });
+
+    return results;
+  }
+}
+
+/**
+ * ============================================================================
+ * ✅ GOOD APPROACH: Filter at Database Level
+ * ============================================================================
+ * 
+ * BENEFITS:
+ * • Security: Only authorized data leaves database
+ * • Performance: Database applies filters before returning
+ * • Memory: Smaller result sets
+ * • Consistency: All queries use same filter logic
+ * • Audit: Database query logs show filtering
+ * • Index optimization: Can use WHERE clause indexes
+ */
+
+export class GoodNonConformanceService {
+  async getNonConformances_SECURE(
+    user: JWTPayload,
+    userScopes?: string[]
+  ) {
+    // ✅ SOLUTION 1: Build secure WHERE clause
+    const secureFilter = SecureFilters.nonConformance(user, userScopes);
+
+    // ✅ SOLUTION 2: Apply filter at database query level
+    const authorizedNCs = await prisma.nonConformance.findMany({
+      where: secureFilter,
+      include: {
+        reportedBy: {
+          select: { id: true, firstName: true, lastName: true },
+        },
+        assignedTo: {
+          select: { id: true, firstName: true, lastName: true },
+        },
+        escalation: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return authorizedNCs;
+  }
+
+  async searchNonConformances_SECURE(
+    user: JWTPayload,
+    query: string,
+    userScopes?: string[]
+  ) {
+    // ✅ SECURE: Combine authorization filter with search filter
+    const authFilter = SecureFilters.nonConformance(user, userScopes);
+    
+    const searchFilter = {
+      AND: [
+        authFilter,
+        {
+          OR: [
+            { title: { contains: query, mode: 'insensitive' } },
+            { description: { contains: query, mode: 'insensitive' } },
+          ],
+        },
+      ],
+    };
+
+    const results = await prisma.nonConformance.findMany({
+      where: searchFilter,
+      take: 50, // Pagination to prevent large result sets
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return results;
+  }
+
+  async getHighSeverityOverdue_SECURE(
+    user: JWTPayload,
+    userScopes?: string[]
+  ) {
+    // ✅ SECURE: Combine multiple filters at database level
+    const now = new Date();
+    
+    const authFilter = SecureFilters.nonConformance(user, userScopes);
+    
+    const complexFilter = {
+      AND: [
+        authFilter,
+        { severity: { in: ['HIGH', 'CRITICAL'] } },
+        { status: { in: ['OPEN', 'IN_PROGRESS'] } },
+        { escalation: { isOverdue: true } },
+        {
+          escalation: {
+            nextEscalationAt: { lte: now },
+          },
+        },
+      ],
+    };
+
+    return await prisma.nonConformance.findMany({
+      where: complexFilter,
+      include: {
+        escalation: true,
+        correctiveActions: {
+          where: { status: { in: ['PENDING', 'IN_PROGRESS'] } },
+        },
+      },
+    });
+  }
+
+  async getPaginatedNonConformances_SECURE(
+    user: JWTPayload,
+    userScopes?: string[],
+    page: number = 1,
+    limit: number = 20
+  ) {
+    // ✅ SECURE: Paginate to prevent over-fetching
+    const secureFilter = SecureFilters.nonConformance(user, userScopes);
+
+    const [data, total] = await Promise.all([
+      prisma.nonConformance.findMany({
+        where: secureFilter,
+        skip: (page - 1) * limit,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.nonConformance.count({ where: secureFilter }),
+    ]);
+
+    return {
+      data,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
+      },
+    };
+  }
+}
+
+/**
+ * ============================================================================
+ * CORRECTIVE ACTIONS: BAD vs GOOD
+ * ============================================================================
+ */
+
+export class BadCorrectiveActionService {
+  // ❌ BAD: Fetch all, filter in app
+  async getCorrectiveActions_UNSAFE(user: JWTPayload) {
+    const allCAs = await prisma.correctiveAction.findMany({
+      include: { nonConformance: true },
+    });
+
+    // Filtering logic scattered through app
+    return allCAs.filter(ca => {
+      if (user.role === 'ADMIN') return true;
+      if (user.role === 'MANAGER') {
+        return ca.assignedToId === user.userId;
+      }
+      return ca.assignedToId === user.userId;
+    });
+  }
+}
+
+export class GoodCorrectiveActionService {
+  // ✅ GOOD: Database-level filtering
+  async getCorrectiveActions_SECURE(
+    user: JWTPayload,
+    userScopes?: string[]
+  ) {
+    const secureFilter = SecureFilters.correctiveAction(user, userScopes);
+
+    return await prisma.correctiveAction.findMany({
+      where: secureFilter,
+      include: {
+        nonConformance: {
+          select: {
+            id: true,
+            title: true,
+            severity: true,
+            status: true,
+          },
+        },
+        assignedTo: {
+          select: { id: true, firstName: true, lastName: true },
+        },
+        escalation: true,
+      },
+      orderBy: { dueDate: 'asc' },
+    });
+  }
+
+  // ✅ GOOD: Multi-filter with escalation status
+  async getEscalatedCAs_SECURE(
+    user: JWTPayload,
+    userScopes?: string[]
+  ) {
+    const baseFilter = SecureFilters.correctiveAction(user, userScopes);
+
+    return await prisma.correctiveAction.findMany({
+      where: {
+        AND: [
+          baseFilter,
+          {
+            escalation: {
+              escalationStatus: 'ACTIVE',
+              currentLevel: { not: 'NONE' },
+            },
+          },
+        ],
+      },
+      include: {
+        escalation: true,
+        nonConformance: true,
+      },
+      orderBy: { escalation: { nextEscalationAt: 'asc' } },
+    });
+  }
+
+  // ✅ GOOD: Overdue detection with secure filtering
+  async getOverdueActions_SECURE(
+    user: JWTPayload,
+    userScopes?: string[]
+  ) {
+    const now = new Date();
+    const baseFilter = SecureFilters.correctiveAction(user, userScopes);
+
+    return await prisma.correctiveAction.findMany({
+      where: {
+        AND: [
+          baseFilter,
+          { dueDate: { lt: now } },
+          { status: { in: ['PENDING', 'IN_PROGRESS'] } },
+        ],
+      },
+      orderBy: { dueDate: 'asc' },
+    });
+  }
+}
+
+/**
+ * ============================================================================
+ * DOCUMENTS: COMPLEX FILTERING EXAMPLE
+ * ============================================================================
+ */
+
+export class GoodDocumentService {
+  // ✅ GOOD: Role-based document access with status
+  async getAccessibleDocuments_SECURE(
+    user: JWTPayload,
+    userScopes?: string[]
+  ) {
+    const secureFilter = SecureFilters.document(user, userScopes);
+
+    return await prisma.document.findMany({
+      where: secureFilter,
+      include: {
+        createdBy: { select: { id: true, firstName: true, lastName: true } },
+        _count: {
+          select: { views: true },
+        },
+      },
+      orderBy: { updatedAt: 'desc' },
+    });
+  }
+
+  // ✅ GOOD: Documents pending review (only for MANAGER+)
+  async getPendingReviewDocuments_SECURE(user: JWTPayload) {
+    // Only managers and admins can see draft/review documents
+    if (!['ADMIN', 'MANAGER'].includes(user.role)) {
+      return [];
+    }
+
+    return await prisma.document.findMany({
+      where: {
+        status: { in: ['DRAFT', 'REVIEW'] },
+        deletedAt: null,
+      },
+      include: {
+        createdBy: true,
+        reviewedBy: true,
+      },
+    });
+  }
+
+  // ✅ GOOD: Public documents only (for USER role)
+  async getPublicDocuments_SECURE() {
+    return await prisma.document.findMany({
+      where: {
+        status: 'APPROVED',
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        title: true,
+        version: true,
+        updatedAt: true,
+        // Don't expose internal fields
+      },
+      orderBy: { title: 'asc' },
+    });
+  }
+}
+
+/**
+ * ============================================================================
+ * PERFORMANCE COMPARISON
+ * ============================================================================
+ * 
+ * Scenario: 100,000 Non-Conformances in database
+ *          User is a regular USER who should see 50 records
+ *
+ * ❌ BAD APPROACH:
+ *    1. SELECT * FROM NonConformance;  → Returns 100,000 rows
+ *    2. Transfer 100,000 rows to app    → Network overhead
+ *    3. Filter in app                   → CPU overhead
+ *    4. Return 50 rows to client
+ *    Total: HIGH network, HIGH memory, HIGH CPU
+ *    Data exposed: YES (intermediate)
+ *
+ * ✅ GOOD APPROACH:
+ *    1. SELECT * FROM NonConformance WHERE (reportedById = ? OR assignedToId = ?)
+ *       AND deletedAt IS NULL;          → Returns 50 rows
+ *    2. Transfer 50 rows to app         → Minimal network
+ *    3. Return 50 rows to client
+ *    Total: LOW network, LOW memory, FAST
+ *    Data exposed: NO
+ */
