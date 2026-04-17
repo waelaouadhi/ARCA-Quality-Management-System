@@ -27,7 +27,7 @@
     "typescript",
     "prisma"
   ],
-  "author": "",
+  "author": "Wael Aouadhi",
   "license": "ISC",
   "dependencies": {
     "@apollo/server": "^4.13.0",
