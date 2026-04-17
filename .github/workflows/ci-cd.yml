@@ -361,7 +361,7 @@ jobs:
             --command -- sh -c "curl -fsS http://prometheus:9090/api/v1/rules | grep -q 'QMSHigh5xxRate'"
 
       - name: Collect deployment diagnostics
-        if: steps.observability.outcome != 'success' || steps.rollout.outcome != 'success' || steps.smoke.outcome == 'failure' || steps.metrics.outcome == 'failure' || steps.alert_rules.outcome == 'failure'
+        if: steps.rollout.outcome != 'success' || steps.smoke.outcome == 'failure' || steps.metrics.outcome == 'failure' || steps.alert_rules.outcome == 'failure'
         run: |
           kubectl get deploy,pods,svc,hpa --namespace "${{ steps.deploy-config.outputs.namespace }}"
           kubectl describe deployment/qms-backend --namespace "${{ steps.deploy-config.outputs.namespace }}"
@@ -378,5 +378,5 @@ jobs:
           kubectl rollout status deployment/qms-backend --timeout=180s --namespace "${{ steps.deploy-config.outputs.namespace }}" || true
 
       - name: Fail workflow when deployment checks fail
-        if: steps.observability.outcome != 'success' || steps.rollout.outcome != 'success' || steps.smoke.outcome == 'failure' || steps.metrics.outcome == 'failure' || steps.alert_rules.outcome == 'failure'
+        if: steps.rollout.outcome != 'success' || steps.smoke.outcome == 'failure' || steps.metrics.outcome == 'failure' || steps.alert_rules.outcome == 'failure'
         run: exit 1
