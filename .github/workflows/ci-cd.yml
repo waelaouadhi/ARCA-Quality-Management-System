@@ -175,14 +175,19 @@ jobs:
           kubectl create secret generic qms-backend-secret \
             --from-literal=DATABASE_URL="${{ secrets.DATABASE_URL }}" \
             --from-literal=JWT_SECRET="${{ secrets.JWT_SECRET }}" \
+            --from-literal=POSTGRES_DB="${{ secrets.POSTGRES_DB != '' && secrets.POSTGRES_DB || 'qms_db' }}" \
+            --from-literal=POSTGRES_USER="${{ secrets.POSTGRES_USER != '' && secrets.POSTGRES_USER || 'postgres' }}" \
+            --from-literal=POSTGRES_PASSWORD="${{ secrets.POSTGRES_PASSWORD != '' && secrets.POSTGRES_PASSWORD || 'change-this-postgres-password' }}" \
             --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Apply Kubernetes manifests
         run: |
+          kubectl apply -f k8s/postgres-pvc.yaml
           kubectl apply -f k8s/postgres-service.yaml
           kubectl apply -f k8s/postgres-deployment.yaml
           kubectl apply -f k8s/backend-service.yaml
           kubectl apply -f k8s/backend-deployment.yaml
+          kubectl apply -f k8s/backend-hpa.yaml
 
       - name: Update backend image
         run: |
