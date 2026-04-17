@@ -127,6 +127,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: ci
     if: github.ref == 'refs/heads/main'
+    environment:
+      name: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_environment || 'production' }}
     outputs:
       ready: ${{ steps.check-secrets.outputs.ready }}
     steps:
