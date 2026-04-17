@@ -20,6 +20,12 @@ patches:
       - op: replace
         path: /spec/replicas
         value: 1
+      - op: replace
+        path: /spec/strategy/rollingUpdate/maxUnavailable
+        value: 1
+      - op: replace
+        path: /spec/strategy/rollingUpdate/maxSurge
+        value: 0
   - target:
       kind: HorizontalPodAutoscaler
       name: qms-backend-hpa
