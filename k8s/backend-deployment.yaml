@@ -25,32 +25,6 @@ spec:
         component: api
     spec:
       terminationGracePeriodSeconds: 30
-      initContainers:
-        - name: wait-for-postgres
-          image: postgres:16-alpine
-          imagePullPolicy: IfNotPresent
-          env:
-            - name: POSTGRES_DB
-              valueFrom:
-                secretKeyRef:
-                  name: qms-backend-secret
-                  key: POSTGRES_DB
-            - name: POSTGRES_USER
-              valueFrom:
-                secretKeyRef:
-                  name: qms-backend-secret
-                  key: POSTGRES_USER
-          command:
-            - /bin/sh
-            - -c
-            - until pg_isready -h postgres -p 5432 -U "$POSTGRES_USER" -d "$POSTGRES_DB"; do echo "waiting for postgres"; sleep 2; done
-          resources:
-            requests:
-              cpu: 25m
-              memory: 64Mi
-            limits:
-              cpu: 100m
-              memory: 128Mi
       containers:
         - name: qms-backend
           image: qms-backend:local
