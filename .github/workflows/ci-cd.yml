@@ -194,5 +194,46 @@ jobs:
           kubectl set image deployment/qms-backend \
             qms-backend=${{ needs.ci.outputs.image }}
 
+      - name: Annotate deployment traceability
+        run: |
+          kubectl annotate deployment/qms-backend \
+            ci.github.com/actor="${{ github.actor }}" \
+            ci.github.com/sha="${{ github.sha }}" \
+            ci.github.com/run-id="${{ github.run_id }}" \
+            --overwrite
+
       - name: Wait for rollout
+        id: rollout
+        continue-on-error: true
         run: kubectl rollout status deployment/qms-backend --timeout=180s
+
+      - name: Smoke test backend service
+        id: smoke
+        if: steps.rollout.outcome == 'success'
+        continue-on-error: true
+        run: |
+          kubectl run qms-smoke-${{ github.run_id }} \
+            --image=curlimages/curl:8.8.0 \
+            --restart=Never \
+            --attach \
+            --rm \
+            --command -- sh -c "curl -fsS http://qms-backend:4000/health"
+
+      - name: Collect deployment diagnostics
+        if: steps.rollout.outcome != 'success' || steps.smoke.outcome == 'failure'
+        run: |
+          kubectl get deploy,pods,svc,hpa
+          kubectl describe deployment/qms-backend
+          kubectl describe pod -l app=qms-backend
+          kubectl logs deployment/qms-backend --all-containers=true --tail=200
+          kubectl logs deployment/postgres --tail=120
+
+      - name: Roll back on deployment failure
+        if: steps.rollout.outcome != 'success' || steps.smoke.outcome == 'failure'
+        run: |
+          kubectl rollout undo deployment/qms-backend
+          kubectl rollout status deployment/qms-backend --timeout=180s || true
+
+      - name: Fail workflow when deployment checks fail
+        if: steps.rollout.outcome != 'success' || steps.smoke.outcome == 'failure'
+        run: exit 1
